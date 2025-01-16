@@ -1,6 +1,9 @@
-make y = 8 + 2 - 3 ;
+make y = 50;
 
-make x = y + 6;
+{
+	make x = 20;
+	exit(x);
+}
 
 exit (y);
 

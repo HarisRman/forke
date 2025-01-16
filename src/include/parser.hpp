@@ -51,6 +51,12 @@ struct NodeExpr {
 	std::variant<NodeTerm*, NodeBinExpr*> var;
 };
 
+struct NodeStmt;
+
+struct NodeScope {
+	std::vector<NodeStmt*> stmts;
+};
+
 struct NodeStmtExit {
 	NodeExpr* expr;
 };
@@ -61,7 +67,7 @@ struct NodeStmtMake {
 };
 
 struct NodeStmt {
-	std::variant<NodeStmtExit*, NodeStmtMake*> var;
+	std::variant<NodeStmtExit*, NodeStmtMake*, NodeScope*> var;
 };
 
 
@@ -300,13 +306,14 @@ private:
 	}
 
 	inline std::optional<NodeStmt *> parse_stmt() {
+		NodeStmt* stmt = m_allocater.alloc<NodeStmt>();
+
 		if (peak().has_value() &&
 		    peak().value().type == TokenType::exit &&
 		    peak(1).has_value() &&
 		    peak(1).value().type == TokenType::open_paren)
 		{
 			NodeStmtExit* exit_stmt = parse_stmt_exit();
-			NodeStmt* stmt = m_allocater.alloc<NodeStmt>();
 			stmt->var = exit_stmt;
 
 			return stmt;
@@ -320,8 +327,20 @@ private:
 			peak(2).value().type == TokenType::eq)
 		{
 			NodeStmtMake* make_stmt = parse_stmt_make();
-			NodeStmt* stmt = m_allocater.alloc<NodeStmt>();
 			stmt->var = make_stmt;
+
+			return stmt;
+		}
+
+		else if (try_consume(TokenType::open_curly))
+		{
+			NodeScope* scope = m_allocater.alloc<NodeScope>();
+			while (auto stmt = parse_stmt())
+				scope->stmts.push_back(stmt.value());
+
+			try_consume(TokenType::close_curly, "Expected '}'");
+
+			stmt->var = scope;
 
 			return stmt;
 		}

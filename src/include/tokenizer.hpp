@@ -6,6 +6,8 @@ enum class TokenType
 	exit,
 	open_paren,
 	close_paren,
+	open_curly,
+	close_curly,
 	int_lit,
 	semi,
 	ident,
@@ -94,6 +96,14 @@ public:
 					case ')':
 						consume();
 						output.push_back({.type = TokenType::close_paren});
+						break;
+					case '{':
+						consume();
+						output.push_back({.type = TokenType::open_curly});
+						break;
+					case '}':
+						consume();
+						output.push_back({.type = TokenType::close_curly});
 						break;
 					case '=':
 						consume();

@@ -1,7 +1,7 @@
 #pragma once
 
-#include <unordered_map>
 
+#include "./mod_map.hpp"
 #include "./parser.hpp"
 
 class Generator {
@@ -38,7 +38,8 @@ private:
 	NodeProg* m_prog;
 	std::stringstream m_output;
 	size_t m_stack_size = 0;
-	std::unordered_map<std::string, Var> m_vars;
+	std::vector<size_t> m_scopes;
+	Modded_map<Var> m_vars;
 
 	//UTILITY FUNCTIONS
 	inline void push(std::string reg) {
@@ -49,6 +50,20 @@ private:
 	inline void pop(std::string reg) {
 		m_output << "    pop " << reg << '\n';
 		m_stack_size--;
+	}
+
+	inline void begin_scope() {	
+		m_scopes.push_back(m_vars.size());
+	}
+
+	inline void end_scope() {
+		size_t pop_count = m_stack_size - m_scopes.back();
+		for (int i = 0; i < pop_count; i++) 
+			m_vars.pop_back();	
+		m_scopes.pop_back();
+		
+		m_output << "    add rsp, " << pop_count * 8;
+		m_stack_size -= pop_count;
 	}
 
 	//generating assembly for EXPRESSIONS	
@@ -182,7 +197,16 @@ private:
 				}	
 				
 				gen->generate_expr(stmt_make->expr);
-				gen->m_vars.insert( {identifier, Var{.stack_loc = gen->m_stack_size}} );
+				gen->m_vars.insert(identifier, Var{.stack_loc = gen->m_stack_size});
+			}
+
+			void operator()(const NodeScope* scope) const{
+				gen->begin_scope();
+
+				for (const NodeStmt* stmt : scope->stmts)
+					gen->generate_stmt(stmt);
+				
+				gen->end_scope();
 			}
 		};
 
