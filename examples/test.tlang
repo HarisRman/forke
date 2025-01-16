@@ -1,0 +1,6 @@
+make y = 8 + 2 - 3 ;
+
+make x = y + 6;
+
+exit (y);
+
