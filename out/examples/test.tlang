@@ -1,0 +1,12 @@
+make y = 50;
+
+if |y|
+{
+	if |y - y| {
+		exit(69);
+	}
+	exit(69);
+}
+
+exit(69);
+

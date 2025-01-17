@@ -38,8 +38,10 @@ private:
 	NodeProg* m_prog;
 	std::stringstream m_output;
 	size_t m_stack_size = 0;
+	size_t m_labels = 1;
 	std::vector<size_t> m_scopes;
 	Modded_map<Var> m_vars;
+
 
 	//UTILITY FUNCTIONS
 	inline void push(std::string reg) {
@@ -62,8 +64,14 @@ private:
 			m_vars.pop_back();	
 		m_scopes.pop_back();
 		
-		m_output << "    add rsp, " << pop_count * 8;
+		m_output << "    add rsp, " << pop_count * 8 << '\n';
 		m_stack_size -= pop_count;
+	}
+
+	inline std::string create_label() {
+		std::stringstream out;
+		out << "label" << m_labels++;
+		return out.str();
 	}
 
 	//generating assembly for EXPRESSIONS	
@@ -177,26 +185,24 @@ private:
 		{
 			Generator* gen;
 
-			void operator()(const NodeStmtExit* stmt_exit) const{
-				gen->m_output << '\n';
+			void operator()(const NodeStmtExit* exit_stmt) const{
 				
-				gen->generate_expr(stmt_exit->expr);
+				gen->generate_expr(exit_stmt->expr);
 				gen->m_output << "    mov rax, 60" << '\n';
 				gen->pop("rdi");
 				gen->m_output << "    syscall"     << '\n';
 			}
 
-			void operator()(const NodeStmtMake* stmt_make) const{
-				gen->m_output << '\n';
+			void operator()(const NodeStmtMake* make_stmt) const{
 				
-				std::string identifier = stmt_make->ident.value.value();
+				std::string identifier = make_stmt->ident.value.value();
 				if (gen->m_vars.contains(identifier))
 				{
-					std::cerr << "Cant reinitialize the variable '" << stmt_make->ident.value.value() << "'dumbass\n";
+					std::cerr << "Cant reinitialize the variable '" << make_stmt->ident.value.value() << "'dumbass\n";
 					exit(EXIT_FAILURE);
 				}	
 				
-				gen->generate_expr(stmt_make->expr);
+				gen->generate_expr(make_stmt->expr);
 				gen->m_vars.insert(identifier, Var{.stack_loc = gen->m_stack_size});
 			}
 
@@ -207,6 +213,19 @@ private:
 					gen->generate_stmt(stmt);
 				
 				gen->end_scope();
+			}
+
+			void operator()(const NodeStmtIf* if_stmt) const {
+				std::string label = gen->create_label();
+				
+				gen->generate_expr(if_stmt->expr);
+				gen->pop("rax");
+				
+				gen->m_output << "    test rax, rax" << '\n';
+				gen->m_output << "    jz " << label << '\n';
+
+				gen->generate_stmt(if_stmt->stmt);
+				gen->m_output << label << ":\n";	
 			}
 		};
 

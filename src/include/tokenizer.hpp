@@ -6,12 +6,14 @@ enum class TokenType
 	exit,
 	open_paren,
 	close_paren,
+	v_bar,
 	open_curly,
 	close_curly,
 	int_lit,
 	semi,
 	ident,
 	make,
+	_if,
 	eq,
 	plus,
 	minus,
@@ -63,7 +65,9 @@ public:
 				if (buf == "exit")
 					output.push_back({.type = TokenType::exit});
 				else if (buf == "make")
-					output.push_back({.type = TokenType::make});				
+					output.push_back({.type = TokenType::make});
+				else if (buf == "if")
+					output.push_back({.type = TokenType::_if});				
 				else {
 					output.push_back({.type = TokenType::ident, .value = buf});
 				}
@@ -88,6 +92,10 @@ public:
 					case ';':
 						consume();
 						output.push_back({.type = TokenType::semi});
+						break;
+					case '|': 
+						consume();
+						output.push_back({.type = TokenType::v_bar});
 						break;
 					case '(':
 						consume();

@@ -1,9 +1,0 @@
-make y = 50;
-
-{
-	make x = 20;
-	exit(x);
-}
-
-exit (y);
-

@@ -5,6 +5,7 @@
 #include "./tokenizer.hpp"
 #include "./arena.hpp"
 
+//EXPRESSIONS
 struct NodeExpr;
 
 struct NodeTermInt {
@@ -51,6 +52,7 @@ struct NodeExpr {
 	std::variant<NodeTerm*, NodeBinExpr*> var;
 };
 
+//STATEMENTS
 struct NodeStmt;
 
 struct NodeScope {
@@ -66,8 +68,13 @@ struct NodeStmtMake {
 	NodeExpr* expr;
 };
 
+struct NodeStmtIf {
+	NodeExpr* expr;
+	NodeStmt* stmt;
+};
+
 struct NodeStmt {
-	std::variant<NodeStmtExit*, NodeStmtMake*, NodeScope*> var;
+	std::variant<NodeStmtExit*, NodeStmtMake*, NodeScope*, NodeStmtIf*> var;
 };
 
 
@@ -343,6 +350,33 @@ private:
 			stmt->var = scope;
 
 			return stmt;
+		}
+
+		else if (try_consume(TokenType::_if))
+		{
+			try_consume(TokenType::v_bar, "Expected '|'\n");
+			NodeStmtIf* if_stmt = m_allocater.alloc<NodeStmtIf>();
+			
+			if (auto expr = parse_expr())
+				if_stmt->expr = expr.value();
+			else {
+				std::cerr << "Invalid Expression :(\n";
+				exit(EXIT_FAILURE);
+			}
+
+			try_consume(TokenType::v_bar, "Expected '|'\n");
+
+			if (auto stmt = parse_stmt())
+				if_stmt->stmt = stmt.value();
+			else {
+				std::cerr << "Invalid Statement\n";
+				exit(EXIT_FAILURE);
+			}
+
+			stmt->var = if_stmt;
+			
+			return stmt;
+
 		}
 
 		return std::nullopt;
