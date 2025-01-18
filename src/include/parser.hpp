@@ -273,10 +273,10 @@ private:
 	//STATEMENTS PARSE
 
 	inline NodeStmtMake* parse_stmt_make() {
-		consume();
+		auto ident = try_consume(TokenType::ident, "Expected an identifier after 'make'");
 		NodeStmtMake* make_stmt = m_allocater.alloc<NodeStmtMake>();
-		make_stmt->ident = consume();
-		consume();
+		make_stmt->ident = ident;
+		try_consume(TokenType::eq, "Expected '='");
 
 		if (auto expr_node = parse_expr())
 		{
@@ -292,8 +292,7 @@ private:
 	}
 
 	inline NodeStmtExit* parse_stmt_exit() {
-		consume();
-		consume();
+		try_consume(TokenType::open_paren, "Expected '(' after an exit call");
 		
 		auto exit_stmt = m_allocater.alloc<NodeStmtExit>();
 		if (auto expr_node = parse_expr())
@@ -304,9 +303,9 @@ private:
 			exit(EXIT_FAILURE);
 		  }
 
-		try_consume(TokenType::close_paren, "Expected \")\"\n");
+		try_consume(TokenType::close_paren, "Expected \")\"");
 
-		try_consume(TokenType::semi, "Expected ';' : Semicolunn\n");
+		try_consume(TokenType::semi, "Expected ';' : Semicolunn");
 
 		return exit_stmt;
 
@@ -315,10 +314,7 @@ private:
 	inline std::optional<NodeStmt *> parse_stmt() {
 		NodeStmt* stmt = m_allocater.alloc<NodeStmt>();
 
-		if (peak().has_value() &&
-		    peak().value().type == TokenType::exit &&
-		    peak(1).has_value() &&
-		    peak(1).value().type == TokenType::open_paren)
+		if (try_consume(TokenType::exit))
 		{
 			NodeStmtExit* exit_stmt = parse_stmt_exit();
 			stmt->var = exit_stmt;
@@ -326,12 +322,7 @@ private:
 			return stmt;
 		}
 
-		else if (peak().has_value() &&
-			peak().value().type == TokenType::make &&
-			peak(1).has_value() &&
-			peak(1).value().type == TokenType::ident &&
-			peak(2).has_value() &&
-			peak(2).value().type == TokenType::eq)
+		else if (try_consume(TokenType::make))
 		{
 			NodeStmtMake* make_stmt = parse_stmt_make();
 			stmt->var = make_stmt;
