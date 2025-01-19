@@ -1,0 +1,20 @@
+make y = 50;
+
+/* This
+	IS	
+	   A big
+		comment
+			*/
+
+if |y - 49| 
+{
+	if |y - 50|
+		exit(10);
+	exit(69);
+	//This is a single line comment	
+}
+
+
+
+exit(1);
+

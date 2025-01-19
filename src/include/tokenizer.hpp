@@ -82,7 +82,34 @@ public:
 
 				output.push_back({TokenType::int_lit, buf});
 
-				buf.clear();
+			    	buf.clear();
+			}
+
+			else if (current == '/' && peak(1).has_value() && peak(1).value() == '/')	//Single line comments	
+			{
+				consume(); consume();
+				while (peak().has_value() && peak().value() != '\n')
+					consume();
+			}
+
+			else if (current == '/' && peak(1).has_value() && peak(1).value() == '*')        /*multi line comments*/
+			{
+				consume(); consume();
+				auto p1 = peak();
+				auto p2 = peak(1);
+				while (p1.has_value())
+				{
+					if (p1.value() == '*' && p2.has_value() && p2.value() == '/')
+					{
+						consume(); consume();
+						break;
+					}
+					
+					consume();
+
+					p1 = p2;
+					p2 = peak(1);
+				}
 			}
 
 			else 
