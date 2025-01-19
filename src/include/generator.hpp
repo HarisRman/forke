@@ -69,8 +69,10 @@ private:
 	}
 
 	inline std::string create_label() {
+		
 		std::stringstream out;
 		out << "label" << m_labels++;
+
 		return out.str();
 	}
 
@@ -180,6 +182,7 @@ private:
 	}
 
 	//genrating assembly for STATEMENTS
+
 	inline void generate_stmt(const NodeStmt* stmt) {
 		struct StmtVisitor 
 		{
@@ -216,8 +219,9 @@ private:
 			}
 
 			void operator()(const NodeStmtIf* if_stmt) const {
+				std::string end_label = gen->create_label();
 				std::string label = gen->create_label();
-				
+
 				gen->generate_expr(if_stmt->expr);
 				gen->pop("rax");
 				
@@ -225,11 +229,56 @@ private:
 				gen->m_output << "    jz " << label << '\n';
 
 				gen->generate_stmt(if_stmt->stmt);
-				gen->m_output << label << ":\n";	
+				gen->m_output << "    jmp " << end_label << '\n';
+				gen->m_output << label << ":\n";
+
+				if (if_stmt->chain.has_value())
+				{
+					gen->generate_if_chain(if_stmt->chain.value(), end_label);
+				}	
+
+				gen->m_output << end_label << ":\n";
 			}
 		};
 
 		StmtVisitor visitor{.gen = this};
 		std::visit(visitor, stmt->var);	
+	}
+	
+	inline void generate_if_chain(NodeIfChain* chain, const std::string label) {
+		struct ChainVisitor 
+		{
+			const std::string end_label;
+			Generator* gen;
+			
+			ChainVisitor(Generator* p_gen, std::string p_label) : gen(p_gen), end_label(p_label) {}
+
+			void operator()(const NodeChainElif* elif) const {
+				
+				std::string label = gen->create_label();
+
+				gen->generate_expr(elif->expr);
+				gen->pop("rax");
+				
+				gen->m_output << "    test rax, rax" << '\n';
+				gen->m_output << "    jz " << label << '\n';
+
+				gen->generate_stmt(elif->stmt);
+				gen->m_output << "    jmp " << end_label << '\n';
+				gen->m_output << label << ":\n";
+
+				if (elif->chain.has_value())
+				{
+					gen->generate_if_chain(elif->chain.value(), end_label);
+				}	
+			}
+
+			void operator()(const NodeChainElse* _else) {
+				gen->generate_stmt(_else->stmt);
+			}
+		};
+
+		ChainVisitor visitor(this, label);
+		std::visit(visitor, chain->var);
 	}
 };

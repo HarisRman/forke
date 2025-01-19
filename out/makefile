@@ -3,6 +3,8 @@ all:
 
 dbg: 
 	g++ -std=c++20 ../src/main.cpp -o forke -g
+run-dbg:
+	gdb --args ./forke ./examples/test.forke
 run:
 	./forke ./examples/test.forke
 clean:

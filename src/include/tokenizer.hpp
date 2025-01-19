@@ -14,6 +14,8 @@ enum class TokenType
 	ident,
 	make,
 	_if,
+	elif,
+	_else,
 	eq,
 	plus,
 	minus,
@@ -67,7 +69,11 @@ public:
 				else if (buf == "make")
 					output.push_back({.type = TokenType::make});
 				else if (buf == "if")
-					output.push_back({.type = TokenType::_if});				
+					output.push_back({.type = TokenType::_if});
+				else if (buf == "elif")
+					output.push_back({.type = TokenType::elif});
+				else if (buf == "else")
+					output.push_back({.type = TokenType::_else});				
 				else {
 					output.push_back({.type = TokenType::ident, .value = buf});
 				}

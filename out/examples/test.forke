@@ -1,20 +1,10 @@
-make y = 50;
+make x = 1;
 
-/* This
-	IS	
-	   A big
-		comment
-			*/
-
-if |y - 49| 
-{
-	if |y - 50|
-		exit(10);
+if |x - 1| {
+	exit(99);
+} elif |x| {
 	exit(69);
-	//This is a single line comment	
+} else {
+	exit(10);
 }
-
-
-
-exit(1);
-
+exit(20);

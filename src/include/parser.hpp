@@ -68,9 +68,26 @@ struct NodeStmtMake {
 	NodeExpr* expr;
 };
 
+struct NodeIfChain;
+
+struct NodeChainElif {
+	NodeExpr* expr;
+	NodeStmt* stmt;
+	std::optional<NodeIfChain*> chain;
+};
+
+struct NodeChainElse {
+	NodeStmt* stmt;
+};
+
+struct NodeIfChain {
+	std::variant<NodeChainElif*, NodeChainElse*> var;
+};
+
 struct NodeStmtIf {
 	NodeExpr* expr;
 	NodeStmt* stmt;
+	std::optional<NodeIfChain*> chain;
 };
 
 struct NodeStmt {
@@ -311,6 +328,56 @@ private:
 
 	}
 
+	inline std::optional<NodeIfChain*> parse_if_chain() {
+		if (try_consume(TokenType::elif))
+		{
+			auto elif = m_allocater.alloc<NodeChainElif>();
+			try_consume(TokenType::v_bar, "Expected '|' after an elif -_-");
+			
+			if (auto expr = parse_expr())
+				elif->expr = expr.value();
+			else {
+				std::cerr << "INVALID EXPRESSION in elif stmt :(\n";
+				exit(EXIT_FAILURE);
+			}
+
+			try_consume(TokenType::v_bar, "Expected '|' after an elif _-_");
+
+			if (auto stmt = parse_stmt())
+				elif->stmt = stmt.value();
+			else {
+				std::cerr << "INVALID STATEMENT after elif :(\n";
+				exit(EXIT_FAILURE);
+			}
+
+			if (auto elif_chain = parse_if_chain())
+				elif->chain = elif_chain.value();
+
+			auto chain = m_allocater.alloc<NodeIfChain>();
+			chain->var = elif;
+
+			return chain;
+		}
+
+		else if (try_consume(TokenType::_else))
+		{
+			auto _else = m_allocater.alloc<NodeChainElse>();
+			if (auto stmt = parse_stmt())
+				_else->stmt = stmt.value();
+			else {
+				std::cerr << "INVALID EXPRESSION in elif stmt :(\n";
+				exit(EXIT_FAILURE);
+			}
+
+			auto chain = m_allocater.alloc<NodeIfChain>();
+			chain->var = _else;
+
+			return chain;
+		}
+
+		return std::nullopt;
+	}
+
 	inline std::optional<NodeStmt *> parse_stmt() {
 		NodeStmt* stmt = m_allocater.alloc<NodeStmt>();
 
@@ -345,7 +412,8 @@ private:
 
 		else if (try_consume(TokenType::_if))
 		{
-			try_consume(TokenType::v_bar, "Expected '|'\n");
+			try_consume(TokenType::v_bar, "Expected '|'\n");      //FAILS
+			
 			NodeStmtIf* if_stmt = m_allocater.alloc<NodeStmtIf>();
 			
 			if (auto expr = parse_expr())
@@ -363,6 +431,9 @@ private:
 				std::cerr << "Invalid Statement\n";
 				exit(EXIT_FAILURE);
 			}
+
+			if (auto chain = parse_if_chain())
+				if_stmt->chain = chain.value();
 
 			stmt->var = if_stmt;
 			
