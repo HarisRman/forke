@@ -76,6 +76,9 @@ private:
 		return out.str();
 	}
 
+	inline size_t var_offset(size_t loc) {
+		return (m_stack_size - loc) * 8;
+	}
 	//generating assembly for EXPRESSIONS	
 	
 	inline void generate_term(const NodeTerm* term) {
@@ -98,7 +101,7 @@ private:
 
 				std::stringstream offset;
 				offset << "Qword [rsp + "
-				       << (gen->m_stack_size - gen->m_vars.at(identifier).stack_loc) * 8
+				       << gen->var_offset(gen->m_vars.at(identifier).stack_loc)
 				       << "]";
 
 				gen->push(offset.str());
@@ -209,6 +212,22 @@ private:
 				gen->m_vars.insert(identifier, Var{.stack_loc = gen->m_stack_size});
 			}
 
+			void operator()(const NodeStmtAssign* assign) const {
+				std::string identifier = assign->ident.value.value();
+				if (!gen->m_vars.contains(identifier))
+				{
+					std::cerr << "Undeclared variable: '" << identifier << "'\n";
+					exit(EXIT_FAILURE);
+				}
+
+				gen->generate_expr(assign->expr);
+				gen->pop("rax");
+
+				gen->m_output << "    mov [rsp + " 
+				       	      << gen->var_offset(gen->m_vars.at(identifier).stack_loc)	
+				       	      << "], rax" << '\n';	
+			}
+
 			void operator()(const NodeScope* scope) const{
 				gen->begin_scope();
 
@@ -245,10 +264,10 @@ private:
 		std::visit(visitor, stmt->var);	
 	}
 	
-	inline void generate_if_chain(NodeIfChain* chain, const std::string label) {
+	inline void generate_if_chain(NodeIfChain* chain, const std::string& label) {
 		struct ChainVisitor 
 		{
-			const std::string end_label;
+			const std::string& end_label;
 			Generator* gen;
 			
 			ChainVisitor(Generator* p_gen, std::string p_label) : gen(p_gen), end_label(p_label) {}

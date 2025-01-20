@@ -68,6 +68,11 @@ struct NodeStmtMake {
 	NodeExpr* expr;
 };
 
+struct NodeStmtAssign {
+	Token ident;
+	NodeExpr* expr;
+};
+
 struct NodeIfChain;
 
 struct NodeChainElif {
@@ -91,7 +96,7 @@ struct NodeStmtIf {
 };
 
 struct NodeStmt {
-	std::variant<NodeStmtExit*, NodeStmtMake*, NodeScope*, NodeStmtIf*> var;
+	std::variant<NodeStmtExit*, NodeStmtMake*,NodeStmtAssign*, NodeScope*, NodeStmtIf*> var;
 };
 
 
@@ -397,6 +402,24 @@ private:
 			return stmt;
 		}
 
+		else if (auto ident = try_consume(TokenType::ident))
+		{	
+			try_consume(TokenType::eq, "Expected an '=' :(");
+			
+			auto assign = m_allocater.alloc<NodeStmtAssign>();
+			assign->ident = ident.value();
+			if (auto expr = parse_expr())
+				assign->expr = expr.value();
+			else {
+				std::cerr << "INVALID EXPRESSION\n";
+			        exit(EXIT_FAILURE);	
+			}
+			try_consume(TokenType::semi, "Expected ';' ");
+
+			stmt->var = assign;
+			return stmt;
+		}
+
 		else if (try_consume(TokenType::open_curly))
 		{
 			NodeScope* scope = m_allocater.alloc<NodeScope>();
@@ -438,8 +461,9 @@ private:
 			stmt->var = if_stmt;
 			
 			return stmt;
-
 		}
+
+
 
 		return std::nullopt;
 	}
