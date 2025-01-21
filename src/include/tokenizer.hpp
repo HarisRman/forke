@@ -26,7 +26,8 @@ enum class TokenType
 struct Token 
 {
 	TokenType type; 
-	std::optional<std::string> value;
+	size_t line;
+	std::optional<std::string> value;	
 };
 
 std::optional<int> bin_op_prec(const Token& tok) {
@@ -43,10 +44,55 @@ std::optional<int> bin_op_prec(const Token& tok) {
 	}
 }
 
+std::string type_to_str(TokenType type) {
+	switch(type) 
+	{
+		case TokenType::exit :
+			return "an exit"; 
+		case TokenType::open_paren :
+			return "'('";
+		case TokenType::close_paren :
+			return "')'";
+		case TokenType::v_bar :
+			return "'|'";
+		case TokenType::open_curly :
+			return "'{'";
+		case TokenType::close_curly :
+			return "'}'";
+		case TokenType::int_lit :
+			return "an integer";
+		case TokenType::semi :
+			return "';'";
+		case TokenType::ident :
+			return "an identifier";
+		case TokenType::make :
+			return "a make statement";
+		case TokenType::_if :
+			return "an if statement";
+		case TokenType::elif :
+			return "an elif statement";
+		case TokenType::_else :
+			return "an else statement";
+		case TokenType::eq :
+			return "'='";
+		case TokenType::plus :
+			return "'+'";
+		case TokenType::minus :
+			return "'-'";
+		case TokenType::star :
+			return "'*'";
+		case TokenType::fslash :
+			return "'/'";
+		default:
+			return "i dont even know bruh\n";
+			exit(EXIT_FAILURE);	
+	}
+}
+
 
 class Tokenizer {
 public:
-	inline Tokenizer (std::string p_src) : m_src(std::move(p_src)), m_index(0) {};
+	inline Tokenizer (std::string p_src) : m_src(std::move(p_src)), m_index(0), m_line(1) {};
 
 	inline std::vector<Token> tokenize() {
 		std::vector<Token> output;
@@ -56,8 +102,11 @@ public:
 		{
 			char current = peak().value();
 			if (isspace(current))
+			{
+				if (current == '\n')
+					m_line++;
 				consume();
-			
+			}
 			else if (isalpha(current))
 			{
 				buf.push_back(consume());
@@ -65,17 +114,17 @@ public:
 					buf.push_back(consume());
 
 				if (buf == "exit")
-					output.push_back({.type = TokenType::exit});
+					output.push_back({TokenType::exit, m_line});
 				else if (buf == "make")
-					output.push_back({.type = TokenType::make});
+					output.push_back({TokenType::make, m_line});
 				else if (buf == "if")
-					output.push_back({.type = TokenType::_if});
+					output.push_back({TokenType::_if, m_line});
 				else if (buf == "elif")
-					output.push_back({.type = TokenType::elif});
+					output.push_back({TokenType::elif, m_line});
 				else if (buf == "else")
-					output.push_back({.type = TokenType::_else});				
+					output.push_back({TokenType::_else, m_line});				
 				else {
-					output.push_back({.type = TokenType::ident, .value = buf});
+					output.push_back({TokenType::ident, m_line, buf});
 				}
 
 				buf.clear();
@@ -86,7 +135,7 @@ public:
 				while (peak().has_value() && isdigit(peak().value()))
 					buf.push_back(consume());
 
-				output.push_back({TokenType::int_lit, buf});
+				output.push_back({TokenType::int_lit, m_line, buf});
 
 			    	buf.clear();
 			}
@@ -124,47 +173,47 @@ public:
 				{
 					case ';':
 						consume();
-						output.push_back({.type = TokenType::semi});
+						output.push_back({TokenType::semi, m_line});
 						break;
 					case '|': 
 						consume();
-						output.push_back({.type = TokenType::v_bar});
+						output.push_back({TokenType::v_bar, m_line});
 						break;
 					case '(':
 						consume();
-						output.push_back({.type = TokenType::open_paren});
+						output.push_back({TokenType::open_paren, m_line});
 						break;
 					case ')':
 						consume();
-						output.push_back({.type = TokenType::close_paren});
+						output.push_back({TokenType::close_paren, m_line});
 						break;
 					case '{':
 						consume();
-						output.push_back({.type = TokenType::open_curly});
+						output.push_back({TokenType::open_curly, m_line});
 						break;
 					case '}':
 						consume();
-						output.push_back({.type = TokenType::close_curly});
+						output.push_back({TokenType::close_curly, m_line});
 						break;
 					case '=':
 						consume();
-						output.push_back({.type = TokenType::eq});
+						output.push_back({TokenType::eq, m_line});
 						break;
 					case '+':
 						consume();
-						output.push_back({.type = TokenType::plus});
+						output.push_back({TokenType::plus, m_line});
 						break;
 					case '*':
 						consume();
-						output.push_back({.type = TokenType::star});
+						output.push_back({TokenType::star, m_line});
 						break;
 					case '-':
 						consume();
-						output.push_back({.type = TokenType::minus});
+						output.push_back({TokenType::minus, m_line});
 						break;
 					case '/':
 						consume();
-						output.push_back({.type = TokenType::fslash});
+						output.push_back({TokenType::fslash, m_line});
 						break;
 					default:
 						std::cerr<<"try something valid next time bitchass mf\n";
@@ -181,8 +230,9 @@ public:
 private:
 	const std::string m_src;
 	size_t m_index;
+	size_t m_line;
 
-	inline std::optional<char> peak(size_t jump = 0) const {
+	inline std::optional<char> peak(int jump = 0) const {
 		if (m_index + jump >= m_src.length())
 			return std::nullopt; 
 

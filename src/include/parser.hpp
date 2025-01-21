@@ -134,7 +134,7 @@ private:
 	ArenaAllocater m_allocater;
 	
 	//UTILITY METHODS
-	inline std::optional<Token> peak(size_t jump = 0) const {
+	inline std::optional<Token> peak(int jump = 0) const {
 		if (m_index + jump >= m_tokens.size() )
 			return std::nullopt;
 		return m_tokens.at(m_index + jump);
@@ -143,11 +143,12 @@ private:
 		return m_tokens.at(m_index++);
 	}
 
-	inline Token try_consume(TokenType type, std::string err) {
+	inline Token try_consume_exit(TokenType type) {
 		if (peak().has_value() && peak().value().type == type)
 			return consume();
-		std::cerr << err << '\n';
-		exit(EXIT_FAILURE);
+		
+		EXIT_WARNING(type_to_str(type));
+		return {};
 	}
 
 	inline std::optional<Token> try_consume(TokenType type) {
@@ -155,6 +156,11 @@ private:
 			return consume();
 		return std::nullopt;
 	}
+
+	inline void EXIT_WARNING(const std::string& expected) {
+		std::cerr << "[Parser] |LINE <" << peak(-1).value().line << ">| Expected " << expected << '\n';
+		exit(EXIT_FAILURE);
+	}	
 
 	//EXPRESSION PARSE
 
@@ -183,11 +189,10 @@ private:
 		{
 			auto expr = parse_expr();
 			if (!expr.has_value()) {
-				std::cerr << "Invalid Expression :(\n";
-				exit(EXIT_FAILURE);
+				EXIT_WARNING("expression");
 			}
 
-			try_consume(TokenType::close_paren, "Expected ')' :(\n");
+			try_consume_exit(TokenType::close_paren);
 			
 			auto term_paren = m_allocater.alloc<NodeTermParen>();
 			term_paren->expr = expr.value();
@@ -256,7 +261,6 @@ private:
 			std::cerr << "Unreachable edge case, how tf you get here? anyways expected binary expression :(\n";
 			exit(EXIT_FAILURE);
 		}
-
 	}
 
 	inline std::optional<NodeExpr*> parse_expr(int min_prec = 0) {
@@ -295,39 +299,37 @@ private:
 	//STATEMENTS PARSE
 
 	inline NodeStmtMake* parse_stmt_make() {
-		auto ident = try_consume(TokenType::ident, "Expected an identifier after 'make'");
+		auto ident = try_consume_exit(TokenType::ident);
 		NodeStmtMake* make_stmt = m_allocater.alloc<NodeStmtMake>();
 		make_stmt->ident = ident;
-		try_consume(TokenType::eq, "Expected '='");
+		try_consume_exit(TokenType::eq);
 
 		if (auto expr_node = parse_expr())
 		{
 			make_stmt->expr = expr_node.value();
 		} else {
-			std::cerr << "Invalid Expression big dawg\n";
-			exit(EXIT_FAILURE);
+			EXIT_WARNING("Expression :(");
 		  }
 
-		try_consume(TokenType::semi, "Semi ko lun\n");
+		try_consume_exit(TokenType::semi);
 
 		return make_stmt;
 	}
 
 	inline NodeStmtExit* parse_stmt_exit() {
-		try_consume(TokenType::open_paren, "Expected '(' after an exit call");
+		try_consume_exit(TokenType::open_paren);
 		
 		auto exit_stmt = m_allocater.alloc<NodeStmtExit>();
 		if (auto expr_node = parse_expr())
 		{
 			exit_stmt->expr = expr_node.value();			
 		} else {
-			std::cerr << "Invalid Expression!\n"; 
-			exit(EXIT_FAILURE);
+			EXIT_WARNING("Expression");
 		  }
 
-		try_consume(TokenType::close_paren, "Expected \")\"");
+		try_consume_exit(TokenType::close_paren);
 
-		try_consume(TokenType::semi, "Expected ';' : Semicolunn");
+		try_consume_exit(TokenType::semi);
 
 		return exit_stmt;
 
@@ -337,22 +339,20 @@ private:
 		if (try_consume(TokenType::elif))
 		{
 			auto elif = m_allocater.alloc<NodeChainElif>();
-			try_consume(TokenType::v_bar, "Expected '|' after an elif -_-");
+			try_consume_exit(TokenType::v_bar);
 			
 			if (auto expr = parse_expr())
 				elif->expr = expr.value();
 			else {
-				std::cerr << "INVALID EXPRESSION in elif stmt :(\n";
-				exit(EXIT_FAILURE);
+				EXIT_WARNING("expression in elif statemnet");
 			}
 
-			try_consume(TokenType::v_bar, "Expected '|' after an elif _-_");
+			try_consume_exit(TokenType::v_bar);
 
 			if (auto stmt = parse_stmt())
 				elif->stmt = stmt.value();
 			else {
-				std::cerr << "INVALID STATEMENT after elif :(\n";
-				exit(EXIT_FAILURE);
+				EXIT_WARNING("Statment");
 			}
 
 			if (auto elif_chain = parse_if_chain())
@@ -370,8 +370,7 @@ private:
 			if (auto stmt = parse_stmt())
 				_else->stmt = stmt.value();
 			else {
-				std::cerr << "INVALID EXPRESSION in elif stmt :(\n";
-				exit(EXIT_FAILURE);
+				EXIT_WARNING("Statement");
 			}
 
 			auto chain = m_allocater.alloc<NodeIfChain>();
@@ -404,17 +403,16 @@ private:
 
 		else if (auto ident = try_consume(TokenType::ident))
 		{	
-			try_consume(TokenType::eq, "Expected an '=' :(");
+			try_consume_exit(TokenType::eq);
 			
 			auto assign = m_allocater.alloc<NodeStmtAssign>();
 			assign->ident = ident.value();
 			if (auto expr = parse_expr())
 				assign->expr = expr.value();
 			else {
-				std::cerr << "INVALID EXPRESSION\n";
-			        exit(EXIT_FAILURE);	
+				EXIT_WARNING("Expression");	
 			}
-			try_consume(TokenType::semi, "Expected ';' ");
+			try_consume_exit(TokenType::semi);
 
 			stmt->var = assign;
 			return stmt;
@@ -426,7 +424,7 @@ private:
 			while (auto stmt = parse_stmt())
 				scope->stmts.push_back(stmt.value());
 
-			try_consume(TokenType::close_curly, "Expected '}'");
+			try_consume_exit(TokenType::close_curly);
 
 			stmt->var = scope;
 
@@ -435,24 +433,22 @@ private:
 
 		else if (try_consume(TokenType::_if))
 		{
-			try_consume(TokenType::v_bar, "Expected '|'\n");      //FAILS
+			try_consume_exit(TokenType::v_bar);     
 			
 			NodeStmtIf* if_stmt = m_allocater.alloc<NodeStmtIf>();
 			
 			if (auto expr = parse_expr())
 				if_stmt->expr = expr.value();
 			else {
-				std::cerr << "Invalid Expression :(\n";
-				exit(EXIT_FAILURE);
+				EXIT_WARNING("Expression");
 			}
 
-			try_consume(TokenType::v_bar, "Expected '|'\n");
+			try_consume_exit(TokenType::v_bar);
 
 			if (auto stmt = parse_stmt())
 				if_stmt->stmt = stmt.value();
 			else {
-				std::cerr << "Invalid Statement\n";
-				exit(EXIT_FAILURE);
+				EXIT_WARNING("Statement");
 			}
 
 			if (auto chain = parse_if_chain())
