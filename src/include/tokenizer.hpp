@@ -16,6 +16,7 @@ enum class TokenType
 	_if,
 	elif,
 	_else,
+	loop,
 	eq,
 	plus,
 	minus,
@@ -73,6 +74,8 @@ std::string type_to_str(TokenType type) {
 			return "an elif statement";
 		case TokenType::_else :
 			return "an else statement";
+		case TokenType::loop :
+			return "a loop";
 		case TokenType::eq :
 			return "'='";
 		case TokenType::plus :
@@ -122,7 +125,9 @@ public:
 				else if (buf == "elif")
 					output.push_back({TokenType::elif, m_line});
 				else if (buf == "else")
-					output.push_back({TokenType::_else, m_line});				
+					output.push_back({TokenType::_else, m_line});
+				else if (buf == "loop")
+					output.push_back({TokenType::loop, m_line});				
 				else {
 					output.push_back({TokenType::ident, m_line, buf});
 				}

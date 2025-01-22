@@ -11,13 +11,13 @@ public:
 	{
 	}	
 
-	inline std::string generate_prog() {
+	inline std::string gen_prog() {
 		
 		m_output << "global _start\n_start:\n";
 
 		for (const NodeStmt* stmt : m_prog->stmts)
 		{
-			generate_stmt(stmt);
+			gen_stmt(stmt);
 		}
 		
 		m_output << '\n';
@@ -81,7 +81,7 @@ private:
 	}
 	//generating assembly for EXPRESSIONS	
 	
-	inline void generate_term(const NodeTerm* term) {
+	inline void gen_term(const NodeTerm* term) {
 		struct TermVisitor
 		{	
 			Generator* gen;
@@ -108,7 +108,7 @@ private:
 			}
 
 			void operator()(const NodeTermParen* paren_term) {
-				gen->generate_expr(paren_term->expr);
+				gen->gen_expr(paren_term->expr);
 			}
 		};
 
@@ -116,17 +116,17 @@ private:
 		std::visit(visitor, term->var);
 	}
 
-	inline void generate_expr(const NodeExpr* expr) {
+	inline void gen_expr(const NodeExpr* expr) {
 		struct ExprVisitor 
 		{
 			Generator* gen;
 
 			void operator()(const NodeTerm* term) const {
-				gen->generate_term(term);
+				gen->gen_term(term);
 			}
 
 			void operator()(const NodeBinExpr* bin_expr) const {
-				gen->generate_bin_expr(bin_expr);
+				gen->gen_bin_expr(bin_expr);
 			}
 		};
 		
@@ -134,14 +134,14 @@ private:
 		std::visit(visitor, expr->var);	
 	}
 
-	inline void generate_bin_expr(const NodeBinExpr* bin_expr) {
+	inline void gen_bin_expr(const NodeBinExpr* bin_expr) {
 		struct BinExprVisitor
 		{
 			Generator* gen;
 
 			void operator()(const NodeBinExprAdd* add) const {
-				gen->generate_expr(add->rhs);
-				gen->generate_expr(add->lhs);
+				gen->gen_expr(add->rhs);
+				gen->gen_expr(add->lhs);
 				gen->pop("rax");
 				gen->pop("rbx");
 
@@ -150,8 +150,8 @@ private:
 			}
 
 			void operator()(const NodeBinExprMulti* multi) const {
-				gen->generate_expr(multi->rhs);
-				gen->generate_expr(multi->lhs);
+				gen->gen_expr(multi->rhs);
+				gen->gen_expr(multi->lhs);
 				gen->pop("rax");
 				gen->pop("rbx");
 
@@ -160,8 +160,8 @@ private:
 			}
 
 			void operator()(const NodeBinExprSub* sub) const {
-				gen->generate_expr(sub->rhs);
-				gen->generate_expr(sub->lhs);
+				gen->gen_expr(sub->rhs);
+				gen->gen_expr(sub->lhs);
 				gen->pop("rax");
 				gen->pop("rbx");
 
@@ -170,8 +170,8 @@ private:
 			}
 
 			void operator()(const NodeBinExprDiv* fslash) const {
-				gen->generate_expr(fslash->rhs);
-				gen->generate_expr(fslash->lhs);
+				gen->gen_expr(fslash->rhs);
+				gen->gen_expr(fslash->lhs);
 				gen->pop("rax");
 				gen->pop("rbx");
 
@@ -186,14 +186,14 @@ private:
 
 	//genrating assembly for STATEMENTS
 
-	inline void generate_stmt(const NodeStmt* stmt) {
+	inline void gen_stmt(const NodeStmt* stmt) {
 		struct StmtVisitor 
 		{
 			Generator* gen;
 
 			void operator()(const NodeStmtExit* exit_stmt) const{
 				
-				gen->generate_expr(exit_stmt->expr);
+				gen->gen_expr(exit_stmt->expr);
 				gen->m_output << "    mov rax, 60" << '\n';
 				gen->pop("rdi");
 				gen->m_output << "    syscall"     << '\n';
@@ -208,7 +208,7 @@ private:
 					exit(EXIT_FAILURE);
 				}	
 				
-				gen->generate_expr(make_stmt->expr);
+				gen->gen_expr(make_stmt->expr);
 				gen->m_vars.insert(identifier, Var{.stack_loc = gen->m_stack_size});
 			}
 
@@ -220,7 +220,7 @@ private:
 					exit(EXIT_FAILURE);
 				}
 
-				gen->generate_expr(assign->expr);
+				gen->gen_expr(assign->expr);
 				gen->pop("rax");
 
 				gen->m_output << "    mov [rsp + " 
@@ -232,7 +232,7 @@ private:
 				gen->begin_scope();
 
 				for (const NodeStmt* stmt : scope->stmts)
-					gen->generate_stmt(stmt);
+					gen->gen_stmt(stmt);
 				
 				gen->end_scope();
 			}
@@ -241,21 +241,38 @@ private:
 				std::string end_label = gen->create_label();
 				std::string label = gen->create_label();
 
-				gen->generate_expr(if_stmt->expr);
+				gen->gen_expr(if_stmt->expr);
 				gen->pop("rax");
 				
 				gen->m_output << "    test rax, rax" << '\n';
 				gen->m_output << "    jz " << label << '\n';
 
-				gen->generate_stmt(if_stmt->stmt);
+				gen->gen_stmt(if_stmt->stmt);
 				gen->m_output << "    jmp " << end_label << '\n';
 				gen->m_output << label << ":\n";
 
 				if (if_stmt->chain.has_value())
 				{
-					gen->generate_if_chain(if_stmt->chain.value(), end_label);
+					gen->gen_if_chain(if_stmt->chain.value(), end_label);
 				}	
 
+				gen->m_output << end_label << ":\n";
+			}
+
+			void operator()(const NodeLoop* loop) const {
+				std::string start_label = gen->create_label();
+				std::string end_label = gen->create_label();
+				
+				gen->m_output << start_label << ":\n";
+
+				gen->gen_expr(loop->expr);
+				gen->pop("rax");
+				gen->m_output << "    test rax, rax" << '\n';
+				gen->m_output << "    jz " << end_label << '\n';
+
+				gen->gen_stmt(loop->scope);
+				gen->m_output << "    jmp " << start_label << '\n';
+				
 				gen->m_output << end_label << ":\n";
 			}
 		};
@@ -264,7 +281,7 @@ private:
 		std::visit(visitor, stmt->var);	
 	}
 	
-	inline void generate_if_chain(NodeIfChain* chain, const std::string& label) {
+	inline void gen_if_chain(NodeIfChain* chain, const std::string& label) {
 		struct ChainVisitor 
 		{
 			const std::string& end_label;
@@ -276,24 +293,24 @@ private:
 				
 				std::string label = gen->create_label();
 
-				gen->generate_expr(elif->expr);
+				gen->gen_expr(elif->expr);
 				gen->pop("rax");
 				
 				gen->m_output << "    test rax, rax" << '\n';
 				gen->m_output << "    jz " << label << '\n';
 
-				gen->generate_stmt(elif->stmt);
+				gen->gen_stmt(elif->stmt);
 				gen->m_output << "    jmp " << end_label << '\n';
 				gen->m_output << label << ":\n";
 
 				if (elif->chain.has_value())
 				{
-					gen->generate_if_chain(elif->chain.value(), end_label);
+					gen->gen_if_chain(elif->chain.value(), end_label);
 				}	
 			}
 
 			void operator()(const NodeChainElse* _else) {
-				gen->generate_stmt(_else->stmt);
+				gen->gen_stmt(_else->stmt);
 			}
 		};
 

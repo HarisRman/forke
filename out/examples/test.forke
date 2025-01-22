@@ -1,11 +1,10 @@
-make x = 1;
+make x = 50;
 make y = 20;
 
- if |x-1| {
-	x = 69;
-} elif |x| {
-	x = y - x;
-} 
-else x = 42;
+loop |x| {
+	x = x - 1;
+}
+	
 
 exit(x);
+

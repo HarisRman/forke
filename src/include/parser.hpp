@@ -95,8 +95,13 @@ struct NodeStmtIf {
 	std::optional<NodeIfChain*> chain;
 };
 
+struct NodeLoop {
+	NodeExpr* expr;
+	NodeStmt* scope;
+};
+
 struct NodeStmt {
-	std::variant<NodeStmtExit*, NodeStmtMake*,NodeStmtAssign*, NodeScope*, NodeStmtIf*> var;
+	std::variant<NodeStmtExit*, NodeStmtMake*,NodeStmtAssign*, NodeScope*, NodeStmtIf*, NodeLoop*> var;
 };
 
 
@@ -456,6 +461,34 @@ private:
 
 			stmt->var = if_stmt;
 			
+			return stmt;
+		}
+
+		else if (try_consume(TokenType::loop))
+		{
+			try_consume_exit(TokenType::v_bar);
+			auto loop = m_allocater.alloc<NodeLoop>();
+			
+			if (auto expr = parse_expr())
+				loop->expr = expr.value();
+			else {
+				EXIT_WARNING("Expression");
+			}
+
+			try_consume_exit(TokenType::v_bar);
+
+			if (!peak().has_value() || peak().value().type != TokenType::open_curly)
+			{
+				EXIT_WARNING("Scope");
+			}
+
+			if (auto scope = parse_stmt())
+				loop->scope = scope.value();
+			else {
+				EXIT_WARNING("Scope");
+			}
+
+			stmt->var = loop;
 			return stmt;
 		}
 

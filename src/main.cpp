@@ -34,7 +34,7 @@ int main(int argc, char** argv) {
 
 	{
 		std::ofstream file ("out.asm");
-		file << generator.generate_prog();
+		file << generator.gen_prog();
 	}
 
 	system("nasm -f elf64 out.asm");
