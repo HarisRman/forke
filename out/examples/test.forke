@@ -1,10 +1,8 @@
 make x = 50;
 make y = 20;
-
-loop |x| {
-	x = x - 1;
-}
 	
 
-exit(x);
+	if |x < y| {exit(69);}
+
+exit(70);
 

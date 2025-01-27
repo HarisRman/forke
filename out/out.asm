@@ -4,24 +4,31 @@ _start:
     push rax
     mov rax, 20
     push rax
-label1:
-    push Qword [rsp + 8]
-    pop rax
-    test rax, rax
-    jz label2
-    mov rax, 1
-    push rax
+    push Qword [rsp + 0]
     push Qword [rsp + 16]
     pop rax
     pop rbx
-    sub rax, rbx
-    push rax
+    cmp rax, rbx
+    jnc label3
+    push 1
+    jmp label4
+label3:
+    push 0
+label4:
     pop rax
-    mov [rsp + 8], rax
-    add rsp, 0
+    test rax, rax
+    jz label2
+    mov rax, 69
+    push rax
+    mov rax, 60
+    pop rdi
+    syscall
+    add rsp, 8
     jmp label1
 label2:
-    push Qword [rsp + 8]
+label1:
+    mov rax, 70
+    push rax
     mov rax, 60
     pop rdi
     syscall

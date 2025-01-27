@@ -116,6 +116,39 @@ private:
 		std::visit(visitor, term->var);
 	}
 
+	inline void gen_cmp_expr(const NodeBinExprCmp* cmp) {
+		const std::string false_label = create_label();
+		const std::string end_label = create_label();
+
+		gen_expr(cmp->rhs);
+		gen_expr(cmp->lhs);
+		pop("rax");
+		pop("rbx");
+		
+		m_output << "    cmp rax, rbx" << '\n';
+
+		switch (cmp->cmp_op) 
+		{
+			case TokenType::g_than :
+				m_output << "    jc " << false_label << '\n';
+				m_output << "    je " << false_label << '\n';
+				push("1");
+				m_output << "    jmp " << end_label << '\n';
+				m_output << false_label << ":\n";
+				push("0");
+				m_output << end_label << ":\n";
+				break;
+			case TokenType::l_than :
+				m_output << "    jnc " << false_label << '\n';
+				push("1");
+				m_output << "    jmp " << end_label << '\n';
+				m_output << false_label << ":\n";
+				push("0");
+				m_output << end_label << ":\n";
+				break;
+		}	
+	}
+
 	inline void gen_expr(const NodeExpr* expr) {
 		struct ExprVisitor 
 		{
@@ -177,6 +210,10 @@ private:
 
 				gen->m_output << "    fslash rbx" << '\n';
 				gen->push("rax");
+			}
+
+			void operator()(const NodeBinExprCmp* cmp) const {
+				gen->gen_cmp_expr(cmp);
 			}
 		};
 

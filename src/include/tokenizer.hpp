@@ -21,7 +21,9 @@ enum class TokenType
 	plus,
 	minus,
 	star,
-	fslash
+	fslash,
+	g_than,
+	l_than,
 };
 
 struct Token 
@@ -34,12 +36,15 @@ struct Token
 std::optional<int> bin_op_prec(const Token& tok) {
 	switch(tok.type)
 	{
+		case TokenType::g_than :
+		case TokenType::l_than :
+			return 0;
 		case TokenType::plus :
 		case TokenType::minus:
-			return 0;
+			return 1;
 		case TokenType::star :
 		case TokenType::fslash  :
-			return 1;
+			return 2;
 		default:
 			return std::nullopt;
 	}
@@ -219,6 +224,14 @@ public:
 					case '/':
 						consume();
 						output.push_back({TokenType::fslash, m_line});
+						break;
+					case '>':
+						consume();
+						output.push_back({TokenType::g_than, m_line});
+						break;
+					case '<':
+						consume();
+						output.push_back({TokenType::l_than, m_line});
 						break;
 					default:
 						std::cerr<<"try something valid next time bitchass mf\n";
