@@ -1,11 +1,11 @@
 global _start
 _start:
-    mov rax, 50
+    mov rax, 0
     push rax
-    mov rax, 20
+label1:
+    mov rax, 5
     push rax
-    push Qword [rsp + 0]
-    push Qword [rsp + 16]
+    push Qword [rsp + 8]
     pop rax
     pop rbx
     cmp rax, rbx
@@ -18,17 +18,19 @@ label4:
     pop rax
     test rax, rax
     jz label2
-    mov rax, 69
+    mov rax, 1
     push rax
-    mov rax, 60
-    pop rdi
-    syscall
-    add rsp, 8
+    push Qword [rsp + 8]
+    pop rax
+    pop rbx
+    add rax, rbx
+    push rax
+    pop rax
+    mov [rsp + 0], rax
+    add rsp, 0
     jmp label1
 label2:
-label1:
-    mov rax, 70
-    push rax
+    push Qword [rsp + 0]
     mov rax, 60
     pop rdi
     syscall

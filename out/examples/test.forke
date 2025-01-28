@@ -1,8 +1,8 @@
-make x = 50;
-make y = 20;
 	
 
-	if |x < y| {exit(69);}
+make x = 0;
 
-exit(70);
+loop |x < 5| {x = x + 1;}
+
+exit(x);
 
