@@ -1,15 +1,15 @@
 global _start
 _start:
-    mov rax, 0
+    mov rax, 19
     push rax
 label1:
-    mov rax, 5
+    mov rax, 10
     push rax
     push Qword [rsp + 8]
     pop rax
     pop rbx
     cmp rax, rbx
-    jnc label3
+    je label3
     push 1
     jmp label4
 label3:
@@ -23,7 +23,7 @@ label4:
     push Qword [rsp + 8]
     pop rax
     pop rbx
-    add rax, rbx
+    sub rax, rbx
     push rax
     pop rax
     mov [rsp + 0], rax

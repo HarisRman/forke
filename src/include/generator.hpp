@@ -132,21 +132,21 @@ private:
 			case TokenType::g_than :
 				m_output << "    jc " << false_label << '\n';
 				m_output << "    je " << false_label << '\n';
-				m_output << "    push 1" << '\n';
-				m_output << "    jmp " << end_label << '\n';
-				m_output << false_label << ":\n";
-				m_output << "    push 0" << '\n';
-				m_output << end_label << ":\n";
 				break;
 			case TokenType::l_than :
 				m_output << "    jnc " << false_label << '\n';
-				m_output << "    push 1" << '\n';
-				m_output << "    jmp " << end_label << '\n';
-				m_output << false_label << ":\n";
-				m_output << "    push 0" << '\n';
-				m_output << end_label << ":\n";
 				break;
+			case TokenType::eq_to :
+				m_output << "    jne " << false_label << '\n';
+			case TokenType::not_eq_to :
+				m_output << "    je " << false_label << '\n';
 		}
+		
+		m_output << "    push 1" << '\n';
+		m_output << "    jmp " << end_label << '\n';
+		m_output << false_label << ":\n";
+		m_output << "    push 0" << '\n';
+		m_output << end_label << ":\n";
 
 		m_stack_size++;	
 	}

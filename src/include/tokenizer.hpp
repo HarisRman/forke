@@ -24,6 +24,8 @@ enum class TokenType
 	fslash,
 	g_than,
 	l_than,
+	eq_to,
+	not_eq_to
 };
 
 struct Token 
@@ -38,6 +40,8 @@ std::optional<int> bin_op_prec(const Token& tok) {
 	{
 		case TokenType::g_than :
 		case TokenType::l_than :
+		case TokenType::eq_to :
+		case TokenType::not_eq_to :
 			return 0;
 		case TokenType::plus :
 		case TokenType::minus:
@@ -91,6 +95,7 @@ std::string type_to_str(TokenType type) {
 			return "'*'";
 		case TokenType::fslash :
 			return "'/'";
+		//TODO add more
 		default:
 			return "i dont even know bruh\n";
 			exit(EXIT_FAILURE);	
@@ -175,6 +180,20 @@ public:
 					p1 = p2;
 					p2 = peak(1);
 				}
+			}
+
+			else if (current == '=' && peak(1).has_value() && peak(1).value() == '=')
+			{
+				consume();
+				consume();
+				output.push_back({TokenType::eq_to, m_line});
+			}
+
+			else if (current == '!' && peak(1).has_value() && peak(1).value() == '=')
+			{	
+				consume();
+				consume();
+				output.push_back({TokenType::not_eq_to, m_line});
 			}
 
 			else 

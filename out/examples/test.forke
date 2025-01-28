@@ -1,8 +1,8 @@
 	
 
-make x = 0;
+make x = 19;
 
-loop |x < 5| {x = x + 1;}
+loop |x != 10| {x = x - 1;}
 
 exit(x);
 

@@ -269,7 +269,9 @@ private:
 		}
 
 		else if (op.type == TokenType::g_than ||
-			 op.type == TokenType::l_than)
+			 op.type == TokenType::l_than ||
+			 op.type == TokenType::eq_to  ||
+			 op.type == TokenType::not_eq_to)
 		{
 			auto bin_expr_cmp = m_allocater.alloc<NodeBinExprCmp>();
 			bin_expr_cmp->cmp_op = op.type;
