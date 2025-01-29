@@ -138,8 +138,10 @@ private:
 				break;
 			case TokenType::eq_to :
 				m_output << "    jne " << false_label << '\n';
+				break;
 			case TokenType::not_eq_to :
 				m_output << "    je " << false_label << '\n';
+				break;
 		}
 		
 		m_output << "    push 1" << '\n';
