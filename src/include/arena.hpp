@@ -3,10 +3,9 @@
 class ArenaAllocater {
 public:
 	inline ArenaAllocater(size_t bytes) 
-	       : m_size(bytes)
+	       : m_size(0), cap(bytes)
 	{
 		m_arena = static_cast<std::byte*>(malloc(bytes));
-		m_offset = m_arena;
 	}
 
 	inline ~ArenaAllocater() {
@@ -18,13 +17,19 @@ public:
 
 	template<typename T>
 	inline T* alloc() {
-		void* offset = m_offset;
-		m_offset += sizeof(T);
+		const size_t obj_size = sizeof(T);
+
+		if (m_size + obj_size > cap) {
+			throw std::bad_alloc();
+		}
+
+		void* obj = m_arena + m_size;
+		m_size += obj_size;
 		
-		return static_cast<T*> (offset); 
+		return static_cast<T*>(obj); 
 	}
 private:
 	size_t m_size;
+	const size_t cap;
 	std::byte* m_arena;
-	std::byte* m_offset;
 };
