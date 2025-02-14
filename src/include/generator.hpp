@@ -12,18 +12,29 @@ public:
 	}	
 
 	inline std::string gen_prog() {
-		
-		m_output << "global _start\n_start:\n";
-
+		//Gen Text
+		m_output << "section .text\n\tglobal _start\n_start:\n";
 		for (const NodeStmt* stmt : m_prog->stmts)
 		{
 			gen_stmt(stmt);
 		}
-		
 		m_output << '\n';
 		m_output << "    mov rax, 60" << '\n';
 		m_output << "    mov rdi, 0"  << '\n';
 		m_output << "    syscall"     << '\n';
+
+		//Gen Data
+		m_output << "\n\nsection .data\n";
+		for (const MsgData& data : Messages)
+		{
+			m_output << '\t' << data.msg_label
+				 << " db"
+				 << " '"
+				 << data.msg
+				 << "'"
+				 << '\n' 
+				 ;
+		}
 
 		return m_output.str();
 	}
@@ -34,14 +45,22 @@ private:
 		size_t stack_loc; 
 	};
 
+	struct MsgData 
+	{
+		std::string msg_label;
+		std::string msg;
+	};
+
 	//MEMBERS
 	NodeProg* m_prog;
 	std::stringstream m_output;
+	
 	size_t m_stack_size = 0;
 	size_t m_labels = 1;
+	
 	std::vector<size_t> m_scopes;
 	Modded_map<Var> m_vars;
-
+	std::vector<MsgData> Messages;
 
 	//UTILITY FUNCTIONS
 	inline void push(std::string reg) {
@@ -315,6 +334,18 @@ private:
 				gen->m_output << "    jmp " << start_label << '\n';
 				
 				gen->m_output << end_label << ":\n";
+			}
+
+			void operator()(const NodeStmtWrite* write) const {
+				std::string msg_label = gen->create_label();	
+				gen->Messages.push_back({msg_label, write->str});
+				
+				gen->m_output << "    mov rax, 1" 			 << '\n'
+					      << "    mov rdi, 1" 			 << '\n'
+					      << "    mov rsi, "  << msg_label 		 << '\n'
+					      << "    mov rdx, "  << write->str.length() << '\n'
+					      << "    syscall"   			 << '\n'
+					      ;
 			}
 		};
 

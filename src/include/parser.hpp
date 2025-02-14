@@ -79,6 +79,10 @@ struct NodeStmtAssign {
 	NodeExpr* expr;
 };
 
+struct NodeStmtWrite {
+	std::string str;
+};
+
 struct NodeIfChain;
 
 struct NodeChainElif {
@@ -107,7 +111,7 @@ struct NodeLoop {
 };
 
 struct NodeStmt {
-	std::variant<NodeStmtExit*, NodeStmtMake*,NodeStmtAssign*, NodeScope*, NodeStmtIf*, NodeLoop*> var;
+	std::variant<NodeStmtExit*, NodeStmtMake*,NodeStmtAssign*, NodeScope*, NodeStmtIf*, NodeLoop*, NodeStmtWrite*> var;
 };
 
 
@@ -118,7 +122,7 @@ struct NodeProg {
 class Parser {
 public:
 	inline Parser(std::vector<Token> tokens) 
-		: m_tokens(std::move(tokens)), m_index(0), m_allocater(1024 * 1024 * 4)
+		: m_tokens(std::move(tokens)), m_index(0), m_allocater(1024 * 1024)
 	{
 	}
 
@@ -514,7 +518,17 @@ private:
 			return stmt;
 		}
 
+		else if (try_consume(TokenType::write))
+		{
+			auto str_lit = try_consume_exit(TokenType::str_lit);
+			try_consume_exit(TokenType::semi);
 
+			auto write = m_allocater.alloc<NodeStmtWrite>();
+			write->str = str_lit.value.value();
+
+			stmt->var = write;
+			return stmt;
+		}
 
 		return std::nullopt;
 	}

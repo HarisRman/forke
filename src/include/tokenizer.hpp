@@ -10,6 +10,7 @@ enum class TokenType
 	open_curly,
 	close_curly,
 	int_lit,
+	str_lit,
 	semi,
 	ident,
 	make,
@@ -17,6 +18,7 @@ enum class TokenType
 	elif,
 	_else,
 	loop,
+	write,
 	eq,
 	plus,
 	minus,
@@ -71,6 +73,8 @@ std::string type_to_str(TokenType type) {
 			return "'}'";
 		case TokenType::int_lit :
 			return "an integer";
+		case TokenType::str_lit :
+			return "a string";
 		case TokenType::semi :
 			return "';'";
 		case TokenType::ident :
@@ -137,7 +141,9 @@ public:
 				else if (buf == "else")
 					output.push_back({TokenType::_else, m_line});
 				else if (buf == "loop")
-					output.push_back({TokenType::loop, m_line});				
+					output.push_back({TokenType::loop, m_line});
+				else if (buf == "write")
+					output.push_back({TokenType::write, m_line});				
 				else {
 					output.push_back({TokenType::ident, m_line, buf});
 				}
@@ -153,6 +159,18 @@ public:
 				output.push_back({TokenType::int_lit, m_line, buf});
 
 			    	buf.clear();
+			}
+
+			else if (current == '\"' )
+			{
+				consume();
+				while (peak().has_value() && peak().value() != '\"')
+					buf.push_back(consume());
+				consume();
+
+				output.push_back({TokenType::str_lit, m_line, buf});
+
+				buf.clear();
 			}
 
 			else if (current == '/' && peak(1).has_value() && peak(1).value() == '/')	//Single line comments	
