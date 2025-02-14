@@ -1,8 +1,18 @@
 	
 
-make x = 19;
+make x = 50;
+make y = 69;
+make z = y - x;
 
-loop |x != 10| {x = x - 1;}
+if |x > y|
+	write "XAXA"<>;
+else if |z == 30|
+	write "ZORG"<>;
+else 
+	loop |z != 25| {
+		write "zamn"<>;
+		z = z + 1;
+	}
 
-exit(x);
+exit(y);
 

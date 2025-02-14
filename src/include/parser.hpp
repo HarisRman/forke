@@ -81,6 +81,7 @@ struct NodeStmtAssign {
 
 struct NodeStmtWrite {
 	std::string str;
+	bool nl = false;
 };
 
 struct NodeIfChain;
@@ -521,9 +522,13 @@ private:
 		else if (try_consume(TokenType::write))
 		{
 			auto str_lit = try_consume_exit(TokenType::str_lit);
-			try_consume_exit(TokenType::semi);
 
 			auto write = m_allocater.alloc<NodeStmtWrite>();
+
+			if (try_consume(TokenType::l_than) && try_consume(TokenType::g_than))
+				write->nl = true;
+			try_consume_exit(TokenType::semi);
+
 			write->str = str_lit.value.value();
 
 			stmt->var = write;

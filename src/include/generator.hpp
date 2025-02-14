@@ -31,9 +31,13 @@ public:
 				 << " db"
 				 << " '"
 				 << data.msg
-				 << "'"
-				 << '\n' 
-				 ;
+				 << "'";
+			if (data.nl)
+			{
+				m_output << " , 0xA";
+			}
+			
+			m_output << '\n';
 		}
 
 		return m_output.str();
@@ -49,6 +53,7 @@ private:
 	{
 		std::string msg_label;
 		std::string msg;
+		bool nl;
 	};
 
 	//MEMBERS
@@ -338,13 +343,13 @@ private:
 
 			void operator()(const NodeStmtWrite* write) const {
 				std::string msg_label = gen->create_label();	
-				gen->Messages.push_back({msg_label, write->str});
+				gen->Messages.push_back({msg_label, write->str, write->nl});
 				
-				gen->m_output << "    mov rax, 1" 			 << '\n'
-					      << "    mov rdi, 1" 			 << '\n'
-					      << "    mov rsi, "  << msg_label 		 << '\n'
-					      << "    mov rdx, "  << write->str.length() << '\n'
-					      << "    syscall"   			 << '\n'
+				gen->m_output << "    mov rax, 1" 			 		      << '\n'
+					      << "    mov rdi, 1" 			 		      << '\n'
+					      << "    mov rsi, "  << msg_label 		 		      << '\n'
+					      << "    mov rdx, "  << write->str.length() + (write->nl ? 1 : 0) << '\n'
+					      << "    syscall"   			 		      << '\n'
 					      ;
 			}
 		};
