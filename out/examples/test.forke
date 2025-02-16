@@ -1,18 +1,14 @@
-	
 
-make x = 50;
-make y = 69;
-make z = y - x;
+make num = 5;
+make i = 1;
+loop |i < 11|
+{
+	write|num|; write " x "; write|i|; write " = "; write|num*i|<>; 
+	i = i + 1;
+}
 
-if |x > y|
-	write "XAXA"<>;
-else if |z == 30|
-	write "ZORG"<>;
-else 
-	loop |z != 25| {
-		write "zamn"<>;
-		z = z + 1;
-	}
+exit(i);
 
-exit(y);
+
+
 

@@ -80,7 +80,7 @@ struct NodeStmtAssign {
 };
 
 struct NodeStmtWrite {
-	std::string str;
+	std::variant<NodeExpr*, std::string> var;
 	bool nl = false;
 };
 
@@ -521,15 +521,26 @@ private:
 
 		else if (try_consume(TokenType::write))
 		{
-			auto str_lit = try_consume_exit(TokenType::str_lit);
-
 			auto write = m_allocater.alloc<NodeStmtWrite>();
 
+			if (auto str_lit = try_consume(TokenType::str_lit))
+			{
+				write->var = str_lit.value().value.value();	
+			}
+			else if (try_consume(TokenType::v_bar))
+			{
+				if (auto expr = parse_expr())
+					write->var = expr.value();
+				else EXIT_WARNING("Expression");
+				try_consume_exit(TokenType::v_bar);
+			} else {
+				EXIT_WARNING("String literal or an Expression");
+			  }
+			
 			if (try_consume(TokenType::l_than) && try_consume(TokenType::g_than))
 				write->nl = true;
+			
 			try_consume_exit(TokenType::semi);
-
-			write->str = str_lit.value.value();
 
 			stmt->var = write;
 			return stmt;

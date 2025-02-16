@@ -23,6 +23,11 @@ public:
 		m_output << "    mov rdi, 0"  << '\n';
 		m_output << "    syscall"     << '\n';
 
+		//Gen Bss
+		m_output << "\n\nsection .bss\n";
+		if (byte_buffer)
+			m_output << "    buf resb " << byte_buffer << '\n';
+
 		//Gen Data
 		m_output << "\n\nsection .data\n";
 		for (const MsgData& data : Messages)
@@ -66,6 +71,7 @@ private:
 	std::vector<size_t> m_scopes;
 	Modded_map<Var> m_vars;
 	std::vector<MsgData> Messages;
+	int byte_buffer = 0;
 
 	//UTILITY FUNCTIONS
 	inline void push(std::string reg) {
@@ -342,20 +348,75 @@ private:
 			}
 
 			void operator()(const NodeStmtWrite* write) const {
-				std::string msg_label = gen->create_label();	
-				gen->Messages.push_back({msg_label, write->str, write->nl});
-				
-				gen->m_output << "    mov rax, 1" 			 		      << '\n'
-					      << "    mov rdi, 1" 			 		      << '\n'
-					      << "    mov rsi, "  << msg_label 		 		      << '\n'
-					      << "    mov rdx, "  << write->str.length() + (write->nl ? 1 : 0) << '\n'
-					      << "    syscall"   			 		      << '\n'
-					      ;
+				gen->gen_stmt_write(write);
 			}
 		};
 
 		StmtVisitor visitor{.gen = this};
 		std::visit(visitor, stmt->var);	
+	}
+
+	inline void gen_stmt_write(const NodeStmtWrite* write) {
+		struct WriteVisitor
+		{
+			Generator* gen;
+			bool nl;
+			WriteVisitor(Generator* p_gen, bool p_nl) : gen(p_gen), nl(p_nl) {}
+
+			void operator()(const std::string& str) const {
+				std::string msg_label = gen->create_label();
+				gen->Messages.push_back({msg_label, str, nl});
+				
+				gen->m_output << "    mov rsi, " << msg_label 		       << '\n'
+					      << "    mov rdx, " << str.length() + (nl ? 1 : 0) << '\n';
+			}
+			void operator()(const NodeExpr* expr) const {
+				gen->byte_buffer = 5;
+				gen->gen_expr(expr);
+				gen->pop("rax");
+				
+				std::string l1    = gen->create_label();
+				std::string l2    = gen->create_label();
+				std::string endl2 = gen->create_label();
+
+				gen->m_output << "    mov rdi, 10"  << '\n'
+					      << "    mov rcx, 0"   << '\n'
+					      << "    mov rdx, 0"   << '\n'
+					      
+					      << l1 << ":\n"
+					      << "    cmp rax, 0"   << '\n'
+					      << "    jz " << l2 << '\n'
+					      << "    div rdi"	    << '\n'
+					      << "    add rdx, 0x30"<< '\n'
+					      << "    push rdx"     << '\n' 
+					      << "    mov rdx, 0"   << '\n'
+					      << "    add rcx, 1"   << '\n'
+					      << "    jmp " << l1   << '\n'
+
+					      << l2 << ":\n"
+					      << "    cmp rdx, rcx"           << '\n'
+					      << "    jz " << endl2 	      << '\n'
+					      << "    pop rax"                << '\n'
+					      << "    mov byte [buf+rdx], al" << '\n'
+					      << "    add rdx, 1"	      << '\n'
+					      << "    jmp " << l2             << '\n'
+					      << endl2 << ":\n"
+
+					      << "    mov rsi, buf"	      << '\n';
+				if (nl)
+				{
+					gen->m_output << "    mov byte [buf+rdx], 0xA" << '\n'
+						      << "    add rdx, 1"	       << '\n';
+				}
+			}
+		};
+
+		WriteVisitor visitor(this, write->nl);
+		std::visit(visitor, write->var);
+
+		m_output << "    mov rax, 1" << '\n'
+			 << "    mov rdi, 1" << '\n';
+		m_output << "    syscall" << '\n';
 	}
 	
 	inline void gen_if_chain(NodeIfChain* chain, const std::string& label) {
