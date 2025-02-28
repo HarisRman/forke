@@ -1,0 +1,25 @@
+
+make num = 13;
+make lim = 101;
+make i = 1;
+
+write "Table of "; 
+write |num|<>;
+
+loop |i < lim| 
+{
+	write|num|; 
+	write " x "; 
+	write|i|; 
+	write " = "; 
+	write|num*i|;
+
+	write|0|<>;
+	i = i + 1;
+} 
+
+exit(69);
+
+
+
+

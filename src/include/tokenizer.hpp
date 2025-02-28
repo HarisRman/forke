@@ -10,10 +10,11 @@ enum class TokenType
 	open_curly,
 	close_curly,
 	int_lit,
+	char_lit,
 	str_lit,
 	semi,
 	ident,
-	make,
+	data_type,
 	_if,
 	elif,
 	_else,
@@ -73,14 +74,14 @@ std::string type_to_str(TokenType type) {
 			return "'}'";
 		case TokenType::int_lit :
 			return "an integer";
+		case TokenType::char_lit :
+			return "a character";
 		case TokenType::str_lit :
 			return "a string";
 		case TokenType::semi :
 			return "';'";
 		case TokenType::ident :
 			return "an identifier";
-		case TokenType::make :
-			return "a make statement";
 		case TokenType::_if :
 			return "an if statement";
 		case TokenType::elif :
@@ -132,8 +133,6 @@ public:
 
 				if (buf == "exit")
 					output.push_back({TokenType::exit, m_line});
-				else if (buf == "make")
-					output.push_back({TokenType::make, m_line});
 				else if (buf == "if")
 					output.push_back({TokenType::_if, m_line});
 				else if (buf == "elif")
@@ -143,7 +142,10 @@ public:
 				else if (buf == "loop")
 					output.push_back({TokenType::loop, m_line});
 				else if (buf == "write")
-					output.push_back({TokenType::write, m_line});				
+					output.push_back({TokenType::write, m_line});
+				else if (buf == "char" ||
+					 buf == "int")
+					output.push_back({TokenType::data_type, m_line, buf});			
 				else {
 					output.push_back({TokenType::ident, m_line, buf});
 				}
@@ -159,6 +161,16 @@ public:
 				output.push_back({TokenType::int_lit, m_line, buf});
 
 			    	buf.clear();
+			}
+
+			else if (current == '\'' && peak(2).has_value() && peak(2).value() == '\'') 
+			{
+				consume();
+				buf.push_back(consume());
+				output.push_back({TokenType::char_lit, m_line, buf});
+				consume();
+
+				buf.clear();
 			}
 
 			else if (current == '\"' )

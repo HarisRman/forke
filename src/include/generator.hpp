@@ -1,5 +1,6 @@
 #pragma once
 
+#include <iomanip>
 
 #include "./mod_map.hpp"
 #include "./parser.hpp"
@@ -25,12 +26,12 @@ public:
 
 		//Gen Bss
 		m_output << "\n\nsection .bss\n";
-		if (byte_buffer)
-			m_output << "    buf resb " << byte_buffer << '\n';
+		if (m_byte_buffer)
+			m_output << "    buf resb " << m_byte_buffer << '\n';
 
 		//Gen Data
 		m_output << "\n\nsection .data\n";
-		for (const MsgData& data : Messages)
+		for (const MsgData& data : m_Messages)
 		{
 			m_output << '\t' << data.msg_label
 				 << " db"
@@ -51,7 +52,8 @@ private:
 
 	struct Var
 	{
-		size_t stack_loc; 
+		size_t stack_loc;
+		DataType type;	
 	};
 
 	struct MsgData 
@@ -68,33 +70,46 @@ private:
 	size_t m_stack_size = 0;
 	size_t m_labels = 1;
 	
-	std::vector<size_t> m_scopes;
+	std::vector<size_t>  m_scopes;
+	std::vector<MsgData> m_Messages;
+
 	Modded_map<Var> m_vars;
-	std::vector<MsgData> Messages;
-	int byte_buffer = 0;
+	TypeTable m_Table;
+
+	int m_byte_buffer = 0;
 
 	//UTILITY FUNCTIONS
-	inline void push(std::string reg) {
-		m_output << "    push " << reg << '\n';
-		m_stack_size++;
+	inline void stack(DataType type, char reg) {
+		m_output << "    sub rsp, "  << m_Table[type].type_size   << '\n';
+		
+		m_output << "    mov "       << m_Table[type].size_asm    << " [rsp], "           
+		       	                     << m_Table[type].getReg(reg) << '\n';
+
+		m_stack_size += m_Table[type].type_size;
 	}
 
-	inline void pop(std::string reg) {
-		m_output << "    pop " << reg << '\n';
-		m_stack_size--;
+	inline void unstack(DataType type, char reg) {
+		m_output << "    mov " << m_Table[type].getReg(reg)
+			 <<       ", " << m_Table[type].size_asm
+			 <<   " [rsp]" << '\n';
+
+		m_output << "    add rsp, " << m_Table[type].type_size << '\n';
+
+		m_stack_size -= m_Table[type].type_size;
 	}
 
 	inline void begin_scope() {	
-		m_scopes.push_back(m_vars.size());
+		m_scopes.push_back(m_stack_size);
 	}
 
 	inline void end_scope() {
 		size_t pop_count = m_stack_size - m_scopes.back();
-		for (int i = 0; i < pop_count; i++) 
-			m_vars.pop_back();	
+		for (int i = 0; i < pop_count; ) 
+			i += m_Table[m_vars.pop_back().type].type_size;	
+		
 		m_scopes.pop_back();
 		
-		m_output << "    add rsp, " << pop_count * 8 << '\n';
+		m_output << "    add rsp, " << pop_count << '\n';
 		m_stack_size -= pop_count;
 	}
 
@@ -107,7 +122,14 @@ private:
 	}
 
 	inline size_t var_offset(size_t loc) {
-		return (m_stack_size - loc) * 8;
+		return m_stack_size - loc;
+	}
+
+	inline void gen_lhs_rhs(NodeExpr* lhs, NodeExpr* rhs) {
+		gen_expr(rhs);
+		m_output << "    push rax" << '\n';
+		gen_expr(lhs);
+		m_output << "    pop rbx" << '\n';
 	}
 	//generating assembly for EXPRESSIONS	
 	
@@ -118,7 +140,12 @@ private:
 
 			void operator()(const NodeTermInt* int_term) const {
 				gen->m_output << "    mov rax, " << int_term->int_lit.value.value() << '\n';
-				gen->push("rax");
+			}
+
+			void operator()(const NodeTermChar* char_term) const {
+				int ascii_value = (int)char_term->char_lit.value.value()[0];
+
+				gen->m_output << "    mov rax, " << ascii_value << '\n';
 			}
 
 			void operator()(const NodeTermIdent* ident_term) const {
@@ -128,13 +155,18 @@ private:
 					std::cerr << "'" << identifier << "' was not declared\n";
 					exit(EXIT_FAILURE);
 				}
+				
+				size_t offset = gen->var_offset(gen->m_vars.at(identifier).stack_loc);
+				DataType type = gen->m_vars.at(identifier).type;
 
-				std::stringstream offset;
-				offset << "Qword [rsp + "
-				       << gen->var_offset(gen->m_vars.at(identifier).stack_loc)
-				       << "]";
-
-				gen->push(offset.str());
+				gen->m_output << "    mov " << gen->m_Table[type].getReg('a') 
+					      <<      ", "  << gen->m_Table[type].size_asm 
+					      <<    " [rsp";
+				if (offset) {gen->m_output  << "+" << offset;}
+				gen->m_output <<      "]"   << '\n';
+				
+				int mask = BITMASK(gen->m_Table[type].type_size);
+				gen->m_output << "    and rax, 0x" << std::hex << mask << '\n'; 
 			}
 
 			void operator()(const NodeTermParen* paren_term) {
@@ -150,10 +182,7 @@ private:
 		const std::string false_label = create_label();
 		const std::string end_label = create_label();
 
-		gen_expr(cmp->rhs);
-		gen_expr(cmp->lhs);
-		pop("rax");
-		pop("rbx");
+		gen_lhs_rhs(cmp->lhs, cmp->rhs);
 		
 		m_output << "    cmp rax, rbx" << '\n';
 
@@ -174,13 +203,11 @@ private:
 				break;
 		}
 		
-		m_output << "    push 1" << '\n';
+		m_output << "    mov rax, 1" << '\n';
 		m_output << "    jmp " << end_label << '\n';
 		m_output << false_label << ":\n";
-		m_output << "    push 0" << '\n';
+		m_output << "    mov rax, 0" << '\n';
 		m_output << end_label << ":\n";
-
-		m_stack_size++;	
 	}
 
 	inline void gen_expr(const NodeExpr* expr) {
@@ -207,43 +234,23 @@ private:
 			Generator* gen;
 
 			void operator()(const NodeBinExprAdd* add) const {
-				gen->gen_expr(add->rhs);
-				gen->gen_expr(add->lhs);
-				gen->pop("rax");
-				gen->pop("rbx");
-
+				gen->gen_lhs_rhs(add->lhs, add->rhs);
 				gen->m_output << "    add rax, rbx" << '\n';
-				gen->push("rax");
 			}
 
 			void operator()(const NodeBinExprMulti* multi) const {
-				gen->gen_expr(multi->rhs);
-				gen->gen_expr(multi->lhs);
-				gen->pop("rax");
-				gen->pop("rbx");
-
+				gen->gen_lhs_rhs(multi->lhs, multi->rhs);
 				gen->m_output << "    mul rbx" << '\n';
-				gen->push("rax");
 			}
 
 			void operator()(const NodeBinExprSub* sub) const {
-				gen->gen_expr(sub->rhs);
-				gen->gen_expr(sub->lhs);
-				gen->pop("rax");
-				gen->pop("rbx");
-
+				gen->gen_lhs_rhs(sub->lhs, sub->rhs);
 				gen->m_output << "    sub rax, rbx" << '\n';
-				gen->push("rax");
 			}
 
 			void operator()(const NodeBinExprDiv* fslash) const {
-				gen->gen_expr(fslash->rhs);
-				gen->gen_expr(fslash->lhs);
-				gen->pop("rax");
-				gen->pop("rbx");
-
-				gen->m_output << "    fslash rbx" << '\n';
-				gen->push("rax");
+				gen->gen_lhs_rhs(fslash->lhs, fslash->rhs);
+				gen->m_output << "    div rbx" << '\n';
 			}
 
 			void operator()(const NodeBinExprCmp* cmp) const {
@@ -265,23 +272,24 @@ private:
 			void operator()(const NodeStmtExit* exit_stmt) const{
 				
 				gen->gen_expr(exit_stmt->expr);
-				gen->m_output << "    mov rax, 60" << '\n';
-				gen->pop("rdi");
-				gen->m_output << "    syscall"     << '\n';
+				gen->m_output << "    mov rdi, rax" << '\n'
+					      << "    mov rax, 60"  << '\n'
+					      << "    syscall"      << '\n';
 			}
 
-			void operator()(const NodeStmtMake* make_stmt) const{
-				
-				std::string identifier = make_stmt->ident.value.value();
+			void operator()(const NodeStmtDeclare* declare) const {
+				std::string identifier = declare->ident.value.value();
 				if (gen->m_vars.contains(identifier))
 				{
-					std::cerr << "Cant reinitialize the variable '" << make_stmt->ident.value.value() << "'dumbass\n";
+					std::cerr << "Cannot Re-Declare variable: '" << identifier << "'\n";
 					exit(EXIT_FAILURE);
-				}	
+				}
+
+				gen->m_output << "    sub rsp, " << gen->m_Table[declare->type].type_size << '\n';
 				
-				gen->gen_expr(make_stmt->expr);
-				gen->m_vars.insert(identifier, Var{.stack_loc = gen->m_stack_size});
-			}
+				gen->m_stack_size += gen->m_Table[declare->type].type_size;
+				gen->m_vars.insert(identifier, Var{.stack_loc = gen->m_stack_size, .type = declare->type});
+			}	
 
 			void operator()(const NodeStmtAssign* assign) const {
 				std::string identifier = assign->ident.value.value();
@@ -290,13 +298,19 @@ private:
 					std::cerr << "Undeclared variable: '" << identifier << "'\n";
 					exit(EXIT_FAILURE);
 				}
-
+				
 				gen->gen_expr(assign->expr);
-				gen->pop("rax");
 
-				gen->m_output << "    mov [rsp + " 
-				       	      << gen->var_offset(gen->m_vars.at(identifier).stack_loc)	
-				       	      << "], rax" << '\n';	
+				DataType type = gen->m_vars.at(identifier).type;
+				size_t offset = gen->var_offset(gen->m_vars.at(identifier).stack_loc);
+
+				gen->m_output << "    mov " 
+					      << gen->m_Table[type].size_asm
+					      <<   " [rsp";
+				if (offset) {gen->m_output  << "+" << offset;}
+				gen->m_output <<      "], " 
+					      << gen->m_Table[type].getReg('a') << '\n';
+				
 			}
 
 			void operator()(const NodeScope* scope) const{
@@ -313,7 +327,6 @@ private:
 				std::string label = gen->create_label();
 
 				gen->gen_expr(if_stmt->expr);
-				gen->pop("rax");
 				
 				gen->m_output << "    test rax, rax" << '\n';
 				gen->m_output << "    jz " << label << '\n';
@@ -337,7 +350,6 @@ private:
 				gen->m_output << start_label << ":\n";
 
 				gen->gen_expr(loop->expr);
-				gen->pop("rax");
 				gen->m_output << "    test rax, rax" << '\n';
 				gen->m_output << "    jz " << end_label << '\n';
 
@@ -365,15 +377,14 @@ private:
 
 			void operator()(const std::string& str) const {
 				std::string msg_label = gen->create_label();
-				gen->Messages.push_back({msg_label, str, nl});
+				gen->m_Messages.push_back({msg_label, str, nl});
 				
 				gen->m_output << "    mov rsi, " << msg_label 		       << '\n'
 					      << "    mov rdx, " << str.length() + (nl ? 1 : 0) << '\n';
 			}
 			void operator()(const NodeExpr* expr) const {
-				gen->byte_buffer = 5;
+				gen->m_byte_buffer = 5;
 				gen->gen_expr(expr);
-				gen->pop("rax");
 				
 				std::string l1    = gen->create_label();
 				std::string l2    = gen->create_label();
@@ -432,7 +443,6 @@ private:
 				std::string label = gen->create_label();
 
 				gen->gen_expr(elif->expr);
-				gen->pop("rax");
 				
 				gen->m_output << "    test rax, rax" << '\n';
 				gen->m_output << "    jz " << label << '\n';

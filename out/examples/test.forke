@@ -1,14 +1,5 @@
+char x;
 
-make num = 5;
-make i = 1;
-loop |i < 11|
-{
-	write|num|; write " x "; write|i|; write " = "; write|num*i|<>; 
-	i = i + 1;
-}
+x = 'x';
 
-exit(i);
-
-
-
-
+exit(x);

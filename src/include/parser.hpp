@@ -3,6 +3,7 @@
 #include <variant>
 
 #include "./tokenizer.hpp"
+#include "./types.hpp"
 #include "./arena.hpp"
 
 //EXPRESSIONS
@@ -10,6 +11,10 @@ struct NodeExpr;
 
 struct NodeTermInt {
 	Token int_lit;
+};
+
+struct NodeTermChar {
+	Token char_lit;
 };
 
 struct NodeTermIdent {
@@ -20,8 +25,9 @@ struct NodeTermParen {
 	NodeExpr* expr;
 };
 
+
 struct NodeTerm {
-	std::variant<NodeTermInt*, NodeTermIdent*, NodeTermParen*> var;
+	std::variant<NodeTermInt*,NodeTermChar*, NodeTermIdent*, NodeTermParen*> var;
 };
 
 struct NodeBinExprAdd {
@@ -69,9 +75,10 @@ struct NodeStmtExit {
 	NodeExpr* expr;
 };
 
-struct NodeStmtMake {
+struct NodeStmtDeclare {
 	Token ident;
-	NodeExpr* expr;
+	DataType type;
+	size_t count = 1;
 };
 
 struct NodeStmtAssign {
@@ -112,7 +119,7 @@ struct NodeLoop {
 };
 
 struct NodeStmt {
-	std::variant<NodeStmtExit*, NodeStmtMake*,NodeStmtAssign*, NodeScope*, NodeStmtIf*, NodeLoop*, NodeStmtWrite*> var;
+	std::variant<NodeStmtExit*, NodeStmtDeclare*, NodeStmtAssign*, NodeScope*, NodeStmtIf*, NodeLoop*, NodeStmtWrite*> var;
 };
 
 
@@ -187,6 +194,16 @@ private:
 			term_int->int_lit = tok_int.value();
 			auto term = m_allocater.alloc<NodeTerm>();
 			term->var = term_int;
+
+			return term;
+		}
+
+		if (auto tok_char = try_consume(TokenType::char_lit))
+		{
+			auto term_char = m_allocater.alloc<NodeTermChar>();
+			term_char->char_lit = tok_char.value();
+			auto term = m_allocater.alloc<NodeTerm>();
+			term->var = term_char;
 
 			return term;
 		}
@@ -330,24 +347,6 @@ private:
 	
 	//STATEMENTS PARSE
 
-	inline NodeStmtMake* parse_stmt_make() {
-		auto ident = try_consume_exit(TokenType::ident);
-		NodeStmtMake* make_stmt = m_allocater.alloc<NodeStmtMake>();
-		make_stmt->ident = ident;
-		try_consume_exit(TokenType::eq);
-
-		if (auto expr_node = parse_expr())
-		{
-			make_stmt->expr = expr_node.value();
-		} else {
-			EXIT_WARNING("Expression :(");
-		  }
-
-		try_consume_exit(TokenType::semi);
-
-		return make_stmt;
-	}
-
 	inline NodeStmtExit* parse_stmt_exit() {
 		try_consume_exit(TokenType::open_paren);
 		
@@ -414,6 +413,7 @@ private:
 		return std::nullopt;
 	}
 
+	//MAIN STATEMENT FUNCTION
 	inline std::optional<NodeStmt *> parse_stmt() {
 		NodeStmt* stmt = m_allocater.alloc<NodeStmt>();
 
@@ -425,11 +425,20 @@ private:
 			return stmt;
 		}
 
-		else if (try_consume(TokenType::make))
+		else if (auto data_type = try_consume(TokenType::data_type))
 		{
-			NodeStmtMake* make_stmt = parse_stmt_make();
-			stmt->var = make_stmt;
-
+			auto declare = m_allocater.alloc<NodeStmtDeclare>();
+			
+			declare->ident = try_consume_exit(TokenType::ident);
+			try_consume_exit(TokenType::semi);
+			
+			const std::string type = data_type.value().value.value();
+			if (type == "int")
+				declare->type = INT;
+			else if (type == "char")
+				declare->type = CHAR;
+			
+			stmt->var = declare;
 			return stmt;
 		}
 

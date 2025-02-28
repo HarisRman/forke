@@ -26,9 +26,12 @@ public:
 		elements.push_back(key);
 	}
 
-	inline void pop_back() {
+	inline Val_t pop_back() {
+		const Val_t data = map.at(elements.back());
 		map.erase(elements.back());
 		elements.pop_back();
+
+		return data;
 	}
 
 private:
