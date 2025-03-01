@@ -128,8 +128,10 @@ private:
 	inline void gen_lhs_rhs(NodeExpr* lhs, NodeExpr* rhs) {
 		gen_expr(rhs);
 		m_output << "    push rax" << '\n';
+		m_stack_size += 8;
 		gen_expr(lhs);
 		m_output << "    pop rbx" << '\n';
+		m_stack_size -= 8;
 	}
 	//generating assembly for EXPRESSIONS	
 	
@@ -165,8 +167,11 @@ private:
 				if (offset) {gen->m_output  << "+" << offset;}
 				gen->m_output <<      "]"   << '\n';
 				
-				int mask = BITMASK(gen->m_Table[type].type_size);
-				gen->m_output << "    and rax, 0x" << std::hex << mask << '\n'; 
+				if (gen->m_Table[type].type_size < 4)
+				{	
+					int mask = BITMASK(gen->m_Table[type].type_size);
+			        	gen->m_output << "    and rax, 0x" << std::hex << mask << '\n'; 
+				}
 			}
 
 			void operator()(const NodeTermParen* paren_term) {

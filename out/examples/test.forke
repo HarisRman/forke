@@ -1,5 +1,5 @@
-char x;
+char c;
 
-x = 'x';
+c = '2';
 
-exit(x);
+write |c|<>;

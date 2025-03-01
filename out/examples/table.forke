@@ -1,0 +1,23 @@
+
+
+int num; int lim; int i;
+num = 2; lim = 11;
+
+i = 0;
+
+write "Table of ";
+write |num|<>;
+loop |i < lim|
+{
+	write |num|;
+	write " x ";
+	write |i|;
+	write " = ";
+	write |num * i|<>;
+
+	i = i+1;
+}
+
+
+exit(69);
+
