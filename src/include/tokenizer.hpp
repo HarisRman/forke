@@ -28,7 +28,9 @@ enum class TokenType
 	g_than,
 	l_than,
 	eq_to,
-	not_eq_to
+	not_eq_to,
+	ptr,
+	dref
 };
 
 struct Token 
@@ -52,6 +54,8 @@ std::optional<int> bin_op_prec(const Token& tok) {
 		case TokenType::star :
 		case TokenType::fslash  :
 			return 2;
+		case TokenType::dref :
+			return 3;
 		default:
 			return std::nullopt;
 	}
@@ -100,6 +104,9 @@ std::string type_to_str(TokenType type) {
 			return "'*'";
 		case TokenType::fslash :
 			return "'/'";
+		case TokenType::dref :
+			return "'->'";
+
 		//TODO add more
 		default:
 			return "i dont even know bruh\n";
@@ -143,8 +150,10 @@ public:
 					output.push_back({TokenType::loop, m_line});
 				else if (buf == "write")
 					output.push_back({TokenType::write, m_line});
-				else if (buf == "char" ||
-					 buf == "int")
+				else if (buf == "char"   ||
+					 buf == "int"    ||
+					 buf == "intptr" ||
+					 buf == "charptr" )
 					output.push_back({TokenType::data_type, m_line, buf});			
 				else {
 					output.push_back({TokenType::ident, m_line, buf});
@@ -185,6 +194,27 @@ public:
 				buf.clear();
 			}
 
+			else if (current == '=' && peak(1).has_value() && peak(1).value() == '=')
+			{
+				consume();
+				consume();
+				output.push_back({TokenType::eq_to, m_line});
+			}
+
+			else if (current == '!' && peak(1).has_value() && peak(1).value() == '=')
+			{	
+				consume();
+				consume();
+				output.push_back({TokenType::not_eq_to, m_line});
+			}
+
+			else if (current == '-' && peak(1).has_value() && peak(1).value() == '>')
+			{
+				consume();
+				consume();
+				output.push_back({TokenType::dref, m_line});
+			}
+
 			else if (current == '/' && peak(1).has_value() && peak(1).value() == '/')	//Single line comments	
 			{
 				consume(); consume();
@@ -211,20 +241,7 @@ public:
 					p2 = peak(1);
 				}
 			}
-
-			else if (current == '=' && peak(1).has_value() && peak(1).value() == '=')
-			{
-				consume();
-				consume();
-				output.push_back({TokenType::eq_to, m_line});
-			}
-
-			else if (current == '!' && peak(1).has_value() && peak(1).value() == '=')
-			{	
-				consume();
-				consume();
-				output.push_back({TokenType::not_eq_to, m_line});
-			}
+	
 
 			else 
 			{
@@ -282,6 +299,10 @@ public:
 						consume();
 						output.push_back({TokenType::l_than, m_line});
 						break;
+					case '^':
+						consume();
+						output.push_back({TokenType::ptr, m_line});
+						break;
 					default:
 						std::cerr<<"try something valid next time bitchass mf\n";
 						exit(EXIT_FAILURE);
@@ -306,7 +327,7 @@ private:
 		return m_src.at(m_index + jump);
 	}
 
-	inline char consume() {
+	inline char consume() {  
 		return m_src.at(m_index++);
 	}
 

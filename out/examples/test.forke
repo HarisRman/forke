@@ -1,5 +1,9 @@
-char c;
+int x;
+int y;
+x = 10;
 
-c = '2';
+y = x + 59;
 
-write |c|<>;
+write |x + y * 10|<>;
+
+exit(x);

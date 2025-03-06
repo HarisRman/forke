@@ -1,11 +1,32 @@
 section .text
 	global _start
 _start:
-    sub rsp, 1
-    mov rax, 50
-    mov byte [rsp], al
-    mov al, byte [rsp]
-    and rax, 0xff
+    sub rsp, 4
+    sub rsp, 4
+    mov rax, rsp
+    add rax, 4
+    push rax
+    mov rax, 10
+    pop rbx
+    mov dword [rbx], eax
+    mov rax, rsp
+    push rax
+    mov rax, 59
+    push rax
+    mov eax, dword [rsp+20]
+    pop rbx
+    add rax, rbx
+    pop rbx
+    mov dword [rbx], eax
+    mov rax, 10
+    push rax
+    mov eax, dword [rsp+8]
+    pop rbx
+    mul rbx
+    push rax
+    mov eax, dword [rsp+12]
+    pop rbx
+    add rax, rbx
     mov rdi, 10
     mov rcx, 0
     mov rdx, 0
@@ -31,6 +52,10 @@ label3:
     add rdx, 1
     mov rax, 1
     mov rdi, 1
+    syscall
+    mov eax, dword [rsp+4]
+    mov rdi, rax
+    mov rax, 60
     syscall
 
     mov rax, 60

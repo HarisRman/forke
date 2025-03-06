@@ -6,7 +6,15 @@
 #include "./types.hpp"
 #include "./arena.hpp"
 
-//EXPRESSIONS
+
+
+enum class EXPRTYPE {
+	RVALUE,
+	LVALUE
+};
+
+
+//EXPRESSIONS		//TODO fix redundent structs
 struct NodeExpr;
 
 struct NodeTermInt {
@@ -16,6 +24,7 @@ struct NodeTermInt {
 struct NodeTermChar {
 	Token char_lit;
 };
+
 
 struct NodeTermIdent {
 	Token ident;
@@ -28,6 +37,7 @@ struct NodeTermParen {
 
 struct NodeTerm {
 	std::variant<NodeTermInt*,NodeTermChar*, NodeTermIdent*, NodeTermParen*> var;
+	DataType type;
 };
 
 struct NodeBinExprAdd {
@@ -60,8 +70,19 @@ struct NodeBinExpr {
 	std::variant<NodeBinExprAdd*, NodeBinExprSub*, NodeBinExprMulti*, NodeBinExprDiv*, NodeBinExprCmp*> var;	
 };
 
+struct NodeUnExprDref {
+	Token ident;
+	std::optional<NodeExpr*> expr;
+};
+
+struct NodeUnExpr {
+	std::variant<NodeUnExprDref*> var;
+};
+
 struct NodeExpr {
-	std::variant<NodeTerm*, NodeBinExpr*> var;
+	std::variant<NodeTerm*, NodeBinExpr*, NodeUnExpr*> var;
+	//DataType type;
+	EXPRTYPE expr_type;
 };
 
 //STATEMENTS
@@ -78,12 +99,13 @@ struct NodeStmtExit {
 struct NodeStmtDeclare {
 	Token ident;
 	DataType type;
-	size_t count = 1;
+	size_t count;
+	std::optional<DataType> pointed_type;
 };
 
 struct NodeStmtAssign {
-	Token ident;
-	NodeExpr* expr;
+	NodeExpr* lvalue_expr;
+	NodeExpr* rvalue_expr;
 };
 
 struct NodeStmtWrite {
@@ -312,10 +334,11 @@ private:
 		}
 	}
 
-	inline std::optional<NodeExpr*> parse_expr(int min_prec = 0) {
+	inline std::optional<NodeExpr*> parse_expr(int min_prec = 0, EXPRTYPE type = EXPRTYPE::RVALUE) {        //TODO Unary Expression support			
+		auto lhs_expr = m_allocater.alloc<NodeExpr>();
+
 		if (auto lhs_term = parse_term())
 		{
-			auto lhs_expr = m_allocater.alloc<NodeExpr>();
 			lhs_expr->var = lhs_term.value();
 
 			while(true)
@@ -336,35 +359,40 @@ private:
 				NodeExpr* expr_bin = make_expr_bin(lhs_expr, rhs_expr.value(), cur.value());
 
 				lhs_expr = expr_bin;
+			}	
+		}
+	       
+		else if	(try_consume(TokenType::dref))
+		{
+			auto dref = m_allocater.alloc<NodeUnExprDref>();
+			dref->ident = try_consume_exit(TokenType::ident);
+
+			if (try_consume(TokenType::l_than))
+			{
+				if (auto expr = parse_expr())
+				{
+					try_consume_exit(TokenType::g_than);
+					dref->expr = expr.value();
+				} else {
+					EXIT_WARNING("Expression");
+				  }
 			}
-
-			return lhs_expr;
-
-		} else {
+			
+			auto un_expr = m_allocater.alloc<NodeUnExpr>();
+			un_expr->var = dref;
+			
+			lhs_expr->var = un_expr;
+		}
+		
+		else {
 			return std::nullopt;
 		  }
+
+		lhs_expr->expr_type = type;
+		return lhs_expr;
 	}
 	
 	//STATEMENTS PARSE
-
-	inline NodeStmtExit* parse_stmt_exit() {
-		try_consume_exit(TokenType::open_paren);
-		
-		auto exit_stmt = m_allocater.alloc<NodeStmtExit>();
-		if (auto expr_node = parse_expr())
-		{
-			exit_stmt->expr = expr_node.value();			
-		} else {
-			EXIT_WARNING("Expression");
-		  }
-
-		try_consume_exit(TokenType::close_paren);
-
-		try_consume_exit(TokenType::semi);
-
-		return exit_stmt;
-
-	}
 
 	inline std::optional<NodeIfChain*> parse_if_chain() {
 		if (try_consume(TokenType::elif))
@@ -419,9 +447,18 @@ private:
 
 		if (try_consume(TokenType::exit))
 		{
-			NodeStmtExit* exit_stmt = parse_stmt_exit();
-			stmt->var = exit_stmt;
+			NodeStmtExit* exit = m_allocater.alloc<NodeStmtExit>();
 
+			try_consume_exit(TokenType::open_paren);
+			
+			if (auto expr = parse_expr())
+				exit->expr = expr.value();
+			else EXIT_WARNING("Expression");
+			
+			try_consume_exit(TokenType::close_paren);
+			try_consume_exit(TokenType::semi);
+
+			stmt->var = exit;
 			return stmt;
 		}
 
@@ -429,30 +466,52 @@ private:
 		{
 			auto declare = m_allocater.alloc<NodeStmtDeclare>();
 			
+			DataType type;
+			const std::string type_name = data_type.value().value.value();
+			if      (type_name == "int")
+					type = INT;
+			else if (type_name == "char")
+					type = CHAR;
+
+			if (try_consume(TokenType::ptr))
+			{
+				declare->type = PTR;
+				declare->pointed_type = type;
+			}
+			else {declare->type = type;}
+			
+			if (try_consume(TokenType::l_than))
+			{
+				auto int_lit = try_consume_exit(TokenType::int_lit);
+				try_consume_exit(TokenType::g_than);
+
+				declare->count = (size_t)std::stoi(int_lit.value.value());
+			} else {
+				declare->count = 1;
+			  }
+
 			declare->ident = try_consume_exit(TokenType::ident);
 			try_consume_exit(TokenType::semi);
-			
-			const std::string type = data_type.value().value.value();
-			if (type == "int")
-				declare->type = INT;
-			else if (type == "char")
-				declare->type = CHAR;
-			
+					
 			stmt->var = declare;
 			return stmt;
 		}
 
-		else if (auto ident = try_consume(TokenType::ident))
+		else if (peak().has_value() && (peak().value().type == TokenType::ident || peak().value().type == TokenType::dref))
 		{	
+			auto assign = m_allocater.alloc<NodeStmtAssign>();
+			if (auto lvalue_expr = parse_expr(0, EXPRTYPE::LVALUE))
+				assign->lvalue_expr = lvalue_expr.value();
+			else 
+				EXIT_WARNING("Expression");
+
 			try_consume_exit(TokenType::eq);
 			
-			auto assign = m_allocater.alloc<NodeStmtAssign>();
-			assign->ident = ident.value();
-			if (auto expr = parse_expr())
-				assign->expr = expr.value();
-			else {
-				EXIT_WARNING("Expression");	
-			}
+			if (auto rvalue_expr = parse_expr())
+				assign->rvalue_expr = rvalue_expr.value();
+			else
+				EXIT_WARNING("Expression");
+
 			try_consume_exit(TokenType::semi);
 
 			stmt->var = assign;
@@ -548,6 +607,8 @@ private:
 			
 			if (try_consume(TokenType::l_than) && try_consume(TokenType::g_than))
 				write->nl = true;
+			else
+				write->nl = false;
 			
 			try_consume_exit(TokenType::semi);
 

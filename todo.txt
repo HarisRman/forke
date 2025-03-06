@@ -1,0 +1,6 @@
+->Deduce a way for every expression to have a type
+
+->Use expression type to perform different operations on lvalue rvalue
+
+
+
