@@ -1,0 +1,20 @@
+
+int~10~ array;
+
+int i;
+i = 0;
+loop |i < 10|
+{
+	->array~i~ = i * i;
+	i = i + 1;
+}
+
+i = 0;
+write "Your Array: "<>;
+loop |i < 10|
+{
+	write |->array~i~|<>;
+	i = i + 1;
+}
+
+exit(69);

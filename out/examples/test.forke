@@ -1,9 +1,0 @@
-int x;
-int y;
-x = 10;
-
-y = x + 59;
-
-write |x + y * 10|<>;
-
-exit(x);

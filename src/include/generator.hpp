@@ -136,7 +136,7 @@ private:
 	}
 
 	//generating assembly for EXPRESSIONS	
-	inline void gen_term(const NodeTerm* term, EXPRTYPE expr_type) {
+	inline void gen_term(const NodeTerm* term, const EXPRTYPE expr_type) {
 		struct TermVisitor
 		{	
 			Generator* gen;
@@ -243,7 +243,7 @@ private:
 			}
 
 			void operator()(const NodeUnExpr* un_expr) const {
-				;
+				gen->gen_un_expr(un_expr, expr_type);
 			}
 		};
 		
@@ -285,6 +285,54 @@ private:
 		std::visit(visitor, bin_expr->var);
 	}
 
+	inline void gen_un_expr(const NodeUnExpr* un_expr, const EXPRTYPE expr_type)
+	{
+		struct un_visitor
+		{
+			Generator* gen;
+			EXPRTYPE expr_type;
+
+			void operator()(const NodeUnExprDref* dref) const {
+				DataType pointed_type = INT;//m_Table[dref->target_expr->type].pointed_type.value();
+				
+				if (dref->offset_expr.has_value())
+				{
+					gen->gen_lhs_rhs(dref->offset_expr.value(), dref->target_expr);
+
+					gen->m_output << "    mov rcx, "    << gen->m_Table[pointed_type].type_size << '\n'  
+						      << "    mul rcx"      << '\n'
+						      << "    add rbx, rax" << '\n'
+						      << "    mov rax, rbx" << '\n';
+				} else {
+					gen->gen_expr(dref->target_expr);
+				  }
+				
+				switch (expr_type)
+				{
+					case EXPRTYPE::LVALUE:
+						break;
+					case EXPRTYPE::RVALUE:
+						gen->m_output << "    mov "
+						              << gen->m_Table[pointed_type].getReg('a')	
+							      << ", "
+							      << gen->m_Table[pointed_type].size_asm
+							      << " [rax]"
+							      << '\n';
+					        if (gen->m_Table[pointed_type].type_size < 4) //TODO unified masking function
+						{
+							int mask = BITMASK(gen->m_Table[pointed_type].type_size);
+					       		gen->m_output << "    and rax, " << std::hex << mask << '\n';       
+						}
+						break;
+				}
+
+			}
+		};
+
+		un_visitor visitor{.gen = this, .expr_type = expr_type};
+		std::visit(visitor, un_expr->var);
+	}
+
 	//genrating assembly for STATEMENTS
 
 	inline void gen_stmt(const NodeStmt* stmt) {
@@ -316,6 +364,11 @@ private:
 					gen->m_vars.insert(identifier, Var{.stack_loc = gen->m_stack_size, .type = PTR, .pointed_type = declare->type});
 				} else {
 					gen->m_vars.insert(identifier, Var{.stack_loc = gen->m_stack_size, .type = declare->type});
+				  }
+
+				if (declare->type == PTR)
+				{
+					gen->m_vars.at(identifier).pointed_type = declare->pointed_type.value();
 				}
 			}
 

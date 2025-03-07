@@ -71,8 +71,8 @@ struct NodeBinExpr {
 };
 
 struct NodeUnExprDref {
-	Token ident;
-	std::optional<NodeExpr*> expr;
+	NodeExpr* target_expr;
+	std::optional<NodeExpr*> offset_expr;
 };
 
 struct NodeUnExpr {
@@ -354,28 +354,36 @@ private:
 				  }
 				
 				consume();
-				auto rhs_expr = parse_expr(min_prec + 1);
 
-				NodeExpr* expr_bin = make_expr_bin(lhs_expr, rhs_expr.value(), cur.value());
-
-				lhs_expr = expr_bin;
+				if (auto rhs_expr = parse_expr(min_prec + 1))
+				{	
+					NodeExpr* expr_bin = make_expr_bin(lhs_expr, rhs_expr.value(), cur.value());
+					lhs_expr = expr_bin;
+				} else {
+					EXIT_WARNING("Expression");
+				  }
 			}	
 		}
 	       
 		else if	(try_consume(TokenType::dref))
 		{
 			auto dref = m_allocater.alloc<NodeUnExprDref>();
-			dref->ident = try_consume_exit(TokenType::ident);
+			
+			if (auto expr = parse_expr())
+				dref->target_expr = expr.value();
+			else EXIT_WARNING("Target Expression");
 
-			if (try_consume(TokenType::l_than))
+			if (try_consume(TokenType::tilde))
 			{
 				if (auto expr = parse_expr())
 				{
-					try_consume_exit(TokenType::g_than);
-					dref->expr = expr.value();
+					try_consume_exit(TokenType::tilde);
+					dref->offset_expr = expr.value();
 				} else {
-					EXIT_WARNING("Expression");
+					EXIT_WARNING("Offset Expression");
 				  }
+
+				dref->target_expr->expr_type = EXPRTYPE::LVALUE;
 			}
 			
 			auto un_expr = m_allocater.alloc<NodeUnExpr>();
@@ -473,17 +481,17 @@ private:
 			else if (type_name == "char")
 					type = CHAR;
 
-			if (try_consume(TokenType::ptr))
+			if (try_consume(TokenType::ptr))	
 			{
 				declare->type = PTR;
 				declare->pointed_type = type;
 			}
 			else {declare->type = type;}
 			
-			if (try_consume(TokenType::l_than))
+			if (try_consume(TokenType::tilde))     
 			{
 				auto int_lit = try_consume_exit(TokenType::int_lit);
-				try_consume_exit(TokenType::g_than);
+				try_consume_exit(TokenType::tilde);
 
 				declare->count = (size_t)std::stoi(int_lit.value.value());
 			} else {

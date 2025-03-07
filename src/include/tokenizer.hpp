@@ -30,6 +30,7 @@ enum class TokenType
 	eq_to,
 	not_eq_to,
 	ptr,
+	tilde,
 	dref
 };
 
@@ -106,6 +107,10 @@ std::string type_to_str(TokenType type) {
 			return "'/'";
 		case TokenType::dref :
 			return "'->'";
+		case TokenType::ptr:
+			return "'^'";
+		case TokenType::tilde:
+			return "'~'";
 
 		//TODO add more
 		default:
@@ -302,6 +307,10 @@ public:
 					case '^':
 						consume();
 						output.push_back({TokenType::ptr, m_line});
+						break;
+					case '~':
+						consume();
+						output.push_back({TokenType::tilde, m_line});
 						break;
 					default:
 						std::cerr<<"try something valid next time bitchass mf\n";
