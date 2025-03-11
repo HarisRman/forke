@@ -176,11 +176,7 @@ private:
 					if (offset) {gen->m_output  << "+" << offset;}
 					gen->m_output <<      "]"   << '\n';
 
-					if (gen->m_Table[type].type_size < 4)
-					{	
-						int mask = BITMASK(gen->m_Table[type].type_size);
-			        		gen->m_output << "    and rax, 0x" << std::hex << mask << '\n'; 
-					}
+					gen->clear_reg("rax", type);
 
 				} else {
 					gen->m_output << "    mov rax, rsp" << '\n';
@@ -189,8 +185,6 @@ private:
 						gen->m_output << "    add rax, " << offset << '\n';
 					}
 				  }
-				
-
 			}
 
 			void operator()(const NodeTermParen* paren_term) {
@@ -299,18 +293,18 @@ private:
 			EXPRTYPE expr_type;
 
 			void operator()(const NodeUnExprDref* dref) const {
-				DataType pointed_type = INT;//m_Table[dref->target_expr->type].pointed_type.value();
+				DataType pointed_type = INT;//m_Table[dref->lvalue_expr->type].pointed_type.value();
 				
-				if (dref->offset_expr.has_value())
+				if (dref->rvalue_expr.has_value())
 				{
-					gen->gen_lhs_rhs(dref->offset_expr.value(), dref->target_expr);
+					gen->gen_lhs_rhs(dref->rvalue_expr.value(), dref->lvalue_expr);
 
 					gen->m_output << "    mov rcx, "    << gen->m_Table[pointed_type].type_size << '\n'  
 						      << "    mul rcx"      << '\n'
 						      << "    add rbx, rax" << '\n'
 						      << "    mov rax, rbx" << '\n';
 				} else {
-					gen->gen_expr(dref->target_expr);
+					gen->gen_expr(dref->lvalue_expr);
 				  }
 				
 				switch (expr_type)
@@ -324,11 +318,7 @@ private:
 							      << gen->m_Table[pointed_type].size_asm
 							      << " [rax]"
 							      << '\n';
-					        if (gen->m_Table[pointed_type].type_size < 4) //TODO unified masking function
-						{
-							int mask = BITMASK(gen->m_Table[pointed_type].type_size);
-					       		gen->m_output << "    and rax, " << std::hex << mask << '\n';       
-						}
+					        gen->clear_reg("rax", pointed_type);
 						break;
 				}
 
@@ -354,6 +344,13 @@ private:
 			 		      << gen->m_Table[type].size_asm
 					      << " [rbx], 1"
 					      << '\n';	
+			}
+
+			void operator()(const NodeUnExprAddr* addr) const {
+				if (expr_type == EXPRTYPE::LVALUE)
+					{std::cerr << "& cannot be an expression of type LVALUE\n"; exit(EXIT_FAILURE);}
+				
+				gen->gen_expr(addr->lvalue_expr);
 			}
 		};
 

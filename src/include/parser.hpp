@@ -71,16 +71,20 @@ struct NodeBinExpr {
 };
 
 struct NodeUnExprDref {
-	NodeExpr* target_expr;
-	std::optional<NodeExpr*> offset_expr;
+	NodeExpr* lvalue_expr;
+	std::optional<NodeExpr*> rvalue_expr;
 };
 
 struct NodeUnExprIncrement {
 	NodeExpr* lvalue_expr;
 };
 
+struct NodeUnExprAddr {
+	NodeExpr* lvalue_expr;
+};
+
 struct NodeUnExpr {
-	std::variant<NodeUnExprDref*, NodeUnExprIncrement*> var;
+	std::variant<NodeUnExprDref*, NodeUnExprIncrement*, NodeUnExprAddr*> var;
 };
 
 struct NodeExpr {
@@ -347,7 +351,7 @@ private:
 				auto dref = m_allocater.alloc<NodeUnExprDref>();
 			
 				if (auto expr = parse_expr())
-					dref->target_expr = expr.value();
+					dref->lvalue_expr = expr.value();
 				else EXIT_WARNING("Target Expression");
 
 				if (try_consume(TokenType::tilde))
@@ -355,12 +359,12 @@ private:
 					if (auto expr = parse_expr())
 					{
 						try_consume_exit(TokenType::tilde);
-						dref->offset_expr = expr.value();
+						dref->rvalue_expr = expr.value();
 					} else {
 						EXIT_WARNING("Offset Expression");
 				  	  }
 
-					dref->target_expr->expr_type = EXPRTYPE::LVALUE;
+					dref->lvalue_expr->expr_type = EXPRTYPE::LVALUE;
 				}
 			
 				un_expr->var = dref;
@@ -376,6 +380,16 @@ private:
 				else EXIT_WARNING("Expression");
 
 				un_expr->var = increment;
+			}
+
+			else if (try_consume(TokenType::addr_of))
+			{
+				auto addr = m_allocater.alloc<NodeUnExprAddr>();
+			       	if (auto expr = parse_expr(0, EXPRTYPE::LVALUE))
+					addr->lvalue_expr = expr.value();
+				else EXIT_WARNING("Expression");
+
+				un_expr->var = addr;
 			}
 
 			else return std::nullopt;

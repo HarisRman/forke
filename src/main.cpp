@@ -33,13 +33,13 @@ int main(int argc, char** argv) {
 	Generator generator(std::move(prog.value()));
 
 	{
-		std::ofstream file ("../out.asm");
+		std::ofstream file ("bin/out.asm");
 		file << generator.gen_prog();
 	}
 
-	system("nasm -f elf64 ../out.asm");
-	system("ld out.o -o out");
-	system("rm out.o");
+	system("nasm -f elf64 bin/out.asm");
+	system("ld bin/out.o -o bin/out");
+	system("rm bin/out.o");
 
 
 	return 0;
