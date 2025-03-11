@@ -75,8 +75,12 @@ struct NodeUnExprDref {
 	std::optional<NodeExpr*> offset_expr;
 };
 
+struct NodeUnExprIncrement {
+	NodeExpr* lvalue_expr;
+};
+
 struct NodeUnExpr {
-	std::variant<NodeUnExprDref*> var;
+	std::variant<NodeUnExprDref*, NodeUnExprIncrement*> var;
 };
 
 struct NodeExpr {
@@ -105,7 +109,7 @@ struct NodeStmtDeclare {
 
 struct NodeStmtAssign {
 	NodeExpr* lvalue_expr;
-	NodeExpr* rvalue_expr;
+	std::optional<NodeExpr*> rvalue_expr;
 };
 
 struct NodeStmtWrite {
@@ -334,6 +338,51 @@ private:
 		}
 	}
 
+	inline std::optional<NodeUnExpr*> parse_un_expr() {
+			
+			NodeUnExpr* un_expr = m_allocater.alloc<NodeUnExpr>();
+
+			if (try_consume(TokenType::dref))
+			{
+				auto dref = m_allocater.alloc<NodeUnExprDref>();
+			
+				if (auto expr = parse_expr())
+					dref->target_expr = expr.value();
+				else EXIT_WARNING("Target Expression");
+
+				if (try_consume(TokenType::tilde))
+				{
+					if (auto expr = parse_expr())
+					{
+						try_consume_exit(TokenType::tilde);
+						dref->offset_expr = expr.value();
+					} else {
+						EXIT_WARNING("Offset Expression");
+				  	  }
+
+					dref->target_expr->expr_type = EXPRTYPE::LVALUE;
+				}
+			
+				un_expr->var = dref;
+			}
+
+			else if (try_consume(TokenType::plus))
+			{
+				try_consume_exit(TokenType::plus);
+
+				auto increment = m_allocater.alloc<NodeUnExprIncrement>();
+				if (auto expr = parse_expr(0, EXPRTYPE::LVALUE))
+					increment->lvalue_expr = expr.value();
+				else EXIT_WARNING("Expression");
+
+				un_expr->var = increment;
+			}
+
+			else return std::nullopt;
+
+			return un_expr;
+		}
+
 	inline std::optional<NodeExpr*> parse_expr(int min_prec = 0, EXPRTYPE type = EXPRTYPE::RVALUE) {        //TODO Unary Expression support			
 		auto lhs_expr = m_allocater.alloc<NodeExpr>();
 
@@ -365,31 +414,9 @@ private:
 			}	
 		}
 	       
-		else if	(try_consume(TokenType::dref))
+		else if	(auto un_expr = parse_un_expr())
 		{
-			auto dref = m_allocater.alloc<NodeUnExprDref>();
-			
-			if (auto expr = parse_expr())
-				dref->target_expr = expr.value();
-			else EXIT_WARNING("Target Expression");
-
-			if (try_consume(TokenType::tilde))
-			{
-				if (auto expr = parse_expr())
-				{
-					try_consume_exit(TokenType::tilde);
-					dref->offset_expr = expr.value();
-				} else {
-					EXIT_WARNING("Offset Expression");
-				  }
-
-				dref->target_expr->expr_type = EXPRTYPE::LVALUE;
-			}
-			
-			auto un_expr = m_allocater.alloc<NodeUnExpr>();
-			un_expr->var = dref;
-			
-			lhs_expr->var = un_expr;
+			lhs_expr->var = un_expr.value();
 		}
 		
 		else {
@@ -505,23 +532,21 @@ private:
 			return stmt;
 		}
 
-		else if (peak().has_value() && (peak().value().type == TokenType::ident || peak().value().type == TokenType::dref))
+		else if (auto expr = parse_expr(0, EXPRTYPE::LVALUE))
 		{	
 			auto assign = m_allocater.alloc<NodeStmtAssign>();
-			if (auto lvalue_expr = parse_expr(0, EXPRTYPE::LVALUE))
-				assign->lvalue_expr = lvalue_expr.value();
-			else 
-				EXIT_WARNING("Expression");
+			assign->lvalue_expr = expr.value();
 
-			try_consume_exit(TokenType::eq);
-			
-			if (auto rvalue_expr = parse_expr())
-				assign->rvalue_expr = rvalue_expr.value();
-			else
-				EXIT_WARNING("Expression");
+			if (try_consume(TokenType::eq))
+			{
+				if (auto rvalue_expr = parse_expr())
+					assign->rvalue_expr = rvalue_expr.value();
+				else
+					EXIT_WARNING("Expression");
+			}
 
 			try_consume_exit(TokenType::semi);
-
+			
 			stmt->var = assign;
 			return stmt;
 		}

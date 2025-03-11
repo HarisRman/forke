@@ -6,6 +6,6 @@ dbg:
 run-dbg:
 	gdb --args ./forke ./examples/test.forke
 run:
-	./forke ./examples/test.forke
+	bin/forke ../examples/test.forke
 clean:
 	rm out out.asm forke

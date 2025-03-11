@@ -4,7 +4,7 @@
 
 #define NO_OF_TYPES 3
 
-#define BITMASK(x) ((x) >= 4 ? (UINT32_MAX) : ((UINT32_C(1) << (x*8)) - 1))
+#define BITMASK(x) (UINT32_C(1) << (x*8)) - 1
 
 enum DataType 
 {

@@ -31,6 +31,7 @@ enum class TokenType
 	not_eq_to,
 	ptr,
 	tilde,
+	addr_of,
 	dref
 };
 
@@ -311,6 +312,10 @@ public:
 					case '~':
 						consume();
 						output.push_back({TokenType::tilde, m_line});
+						break;
+					case '&':
+						consume();
+						output.push_back({TokenType::addr_of, m_line});
 						break;
 					default:
 						std::cerr<<"try something valid next time bitchass mf\n";

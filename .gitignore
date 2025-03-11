@@ -1,0 +1,9 @@
+out/bin
+out/out.asm
+out/examples/test.forke
+
+*.swp
+
+
+
+

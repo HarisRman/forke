@@ -135,6 +135,12 @@ private:
 		m_stack_size -= 8;
 	}
 
+	inline void clear_reg(const std::string reg, DataType type) {
+		if (m_Table[type].type_size >= 4)
+			return;
+		else m_output << "    and " << reg << ", " << std::hex << BITMASK(m_Table[type].type_size) << '\n';
+	}
+
 	//generating assembly for EXPRESSIONS	
 	inline void gen_term(const NodeTerm* term, const EXPRTYPE expr_type) {
 		struct TermVisitor
@@ -327,6 +333,28 @@ private:
 				}
 
 			}
+
+			void operator()(const NodeUnExprIncrement* increment) const {
+				DataType type = INT; //increment->lvalue_expr->type
+				gen->gen_expr(increment->lvalue_expr);
+				gen->m_output << "    mov rbx, rax" << '\n'; 
+				
+				if(expr_type == EXPRTYPE::RVALUE)
+				{
+				  		gen->m_output << "    mov "
+					  		      << gen->m_Table[type].getReg('a')
+					      		      << ", "
+							      << gen->m_Table[type].size_asm
+							      << " [rbx]"
+							      << '\n';
+						gen->clear_reg("rax", type);	
+				}
+				
+				gen->m_output << "    add "
+			 		      << gen->m_Table[type].size_asm
+					      << " [rbx], 1"
+					      << '\n';	
+			}
 		};
 
 		un_visitor visitor{.gen = this, .expr_type = expr_type};
@@ -374,20 +402,19 @@ private:
 
 
 			void operator()(const NodeStmtAssign* assign) const {
-				/*if (!gen->m_vars.contains(identifier))
-				{
-					std::cerr << "Undeclared variable: '" << identifier << "'\n";
-					exit(EXIT_FAILURE);
-				}*/
-				
-				gen->gen_lhs_rhs(assign->rvalue_expr, assign->lvalue_expr);
 				DataType type = INT;  //assign->lvalue_expr->type;
-
-				gen->m_output << "    mov " 
-					      << gen->m_Table[type].size_asm
-					      << " [rbx], "
-					      << gen->m_Table[type].getReg('a')
-					      << '\n';
+				
+				if (assign->rvalue_expr.has_value())
+				{
+					gen->gen_lhs_rhs(assign->rvalue_expr.value(), assign->lvalue_expr);
+					gen->m_output << "    mov " 
+					 	      << gen->m_Table[type].size_asm
+					      	      << " [rbx], "
+					      	      << gen->m_Table[type].getReg('a')
+					      	      << '\n';
+				} else {
+					gen->gen_expr(assign->lvalue_expr);	
+				  }
 			}
 
 			void operator()(const NodeScope* scope) const{
