@@ -37,7 +37,6 @@ struct NodeTermParen {
 
 struct NodeTerm {
 	std::variant<NodeTermInt*,NodeTermChar*, NodeTermIdent*, NodeTermParen*> var;
-	DataType type;
 };
 
 struct NodeBinExprAdd {
@@ -77,6 +76,7 @@ struct NodeUnExprDref {
 
 struct NodeUnExprIncrement {
 	NodeExpr* lvalue_expr;
+	std::optional<NodeExpr*> rvalue_expr;
 };
 
 struct NodeUnExprAddr {
@@ -89,14 +89,14 @@ struct NodeUnExpr {
 
 struct NodeExpr {
 	std::variant<NodeTerm*, NodeBinExpr*, NodeUnExpr*> var;
-	//DataType type;
+	DataType type;
 	EXPRTYPE expr_type;
 };
 
 //STATEMENTS
 struct NodeStmt;
 
-struct NodeScope {
+struct NodeStmtScope {
 	std::vector<NodeStmt*> stmts;
 };
 
@@ -118,7 +118,7 @@ struct NodeStmtAssign {
 
 struct NodeStmtWrite {
 	std::variant<NodeExpr*, std::string> var;
-	bool nl = false;
+	bool nl;
 };
 
 struct NodeIfChain;
@@ -143,13 +143,13 @@ struct NodeStmtIf {
 	std::optional<NodeIfChain*> chain;
 };
 
-struct NodeLoop {
+struct NodeStmtLoop {
 	NodeExpr* expr;
 	NodeStmt* scope;
 };
 
 struct NodeStmt {
-	std::variant<NodeStmtExit*, NodeStmtDeclare*, NodeStmtAssign*, NodeScope*, NodeStmtIf*, NodeLoop*, NodeStmtWrite*> var;
+	std::variant<NodeStmtExit*, NodeStmtDeclare*, NodeStmtAssign*, NodeStmtScope*, NodeStmtIf*, NodeStmtLoop*, NodeStmtWrite*> var;
 };
 
 
@@ -379,6 +379,15 @@ private:
 					increment->lvalue_expr = expr.value();
 				else EXIT_WARNING("Expression");
 
+				if (try_consume(TokenType::l_than))
+				{
+					if (auto expr = parse_expr())
+						increment->rvalue_expr = expr.value();
+					else EXIT_WARNING("Expression");
+
+					try_consume_exit(TokenType::g_than);
+				}
+
 				un_expr->var = increment;
 			}
 
@@ -567,7 +576,7 @@ private:
 
 		else if (try_consume(TokenType::open_curly))
 		{
-			NodeScope* scope = m_allocater.alloc<NodeScope>();
+			NodeStmtScope* scope = m_allocater.alloc<NodeStmtScope>();
 			while (auto stmt = parse_stmt())
 				scope->stmts.push_back(stmt.value());
 
@@ -609,7 +618,7 @@ private:
 		else if (try_consume(TokenType::loop))
 		{
 			try_consume_exit(TokenType::v_bar);
-			auto loop = m_allocater.alloc<NodeLoop>();
+			auto loop = m_allocater.alloc<NodeStmtLoop>();
 			
 			if (auto expr = parse_expr())
 				loop->expr = expr.value();

@@ -8,8 +8,8 @@
 
 enum DataType 
 {
-	INT,
 	CHAR,
+	INT,
 	PTR
 };
 

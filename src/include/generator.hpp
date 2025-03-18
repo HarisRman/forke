@@ -3,12 +3,13 @@
 #include <iomanip>
 
 #include "./mod_map.hpp"
+#include "./typecheck.hpp"
 #include "./parser.hpp"
 
 class Generator {
 public:
-	inline Generator(NodeProg* prog)
-		: m_prog(std::move(prog))
+	inline Generator(NodeProg* prog,  const std::unordered_map<std::string, TypeChecker::VarType>& p_table)
+		: m_prog(std::move(prog)), m_sym_table(p_table)
 	{
 	}	
 
@@ -53,8 +54,7 @@ private:
 	struct Var
 	{
 		size_t stack_loc;
-		DataType type;
-		std::optional<DataType> pointed_type;	
+		TypeChecker::VarType types;	
 	};
 
 	struct MsgData 
@@ -66,6 +66,8 @@ private:
 
 	//MEMBERS
 	NodeProg* m_prog;
+	const std::unordered_map<std::string, TypeChecker::VarType>& m_sym_table;
+	
 	std::stringstream m_output;
 	
 	size_t m_stack_size = 0;
@@ -79,26 +81,6 @@ private:
 
 	int m_byte_buffer = 0;
 
-	//UTILITY FUNCTIONS
-	/*inline void stack(DataType type, char reg) {
-		m_output << "    sub rsp, "  << m_Table[type].type_size   << '\n';
-		
-		m_output << "    mov "       << m_Table[type].size_asm    << " [rsp], "           
-		       	                     << m_Table[type].getReg(reg) << '\n';
-
-		m_stack_size += m_Table[type].type_size;
-	}
-
-	inline void unstack(DataType type, char reg) {
-		m_output << "    mov " << m_Table[type].getReg(reg)
-			 <<       ", " << m_Table[type].size_asm
-			 <<   " [rsp]" << '\n';
-
-		m_output << "    add rsp, " << m_Table[type].type_size << '\n';
-
-		m_stack_size -= m_Table[type].type_size;
-	}*/
-
 	inline void begin_scope() {	
 		m_scopes.push_back(m_stack_size);
 	}
@@ -106,7 +88,7 @@ private:
 	inline void end_scope() {
 		size_t pop_count = m_stack_size - m_scopes.back();
 		for (int i = 0; i < pop_count; ) 
-			i += m_Table[m_vars.pop_back().type].type_size;	
+			i += m_Table[m_vars.pop_back().types.type].type_size;	
 		
 		m_scopes.pop_back();
 		
@@ -138,7 +120,7 @@ private:
 	inline void clear_reg(const std::string reg, DataType type) {
 		if (m_Table[type].type_size >= 4)
 			return;
-		else m_output << "    and " << reg << ", " << std::hex << BITMASK(m_Table[type].type_size) << '\n';
+		else m_output << "    and " << reg << ", 0x" << std::hex << BITMASK(m_Table[type].type_size) << '\n';
 	}
 
 	//generating assembly for EXPRESSIONS	
@@ -166,7 +148,7 @@ private:
 					exit(EXIT_FAILURE);
 				}
 				size_t offset = gen->var_offset(gen->m_vars.at(identifier).stack_loc);
-				DataType type = gen->m_vars.at(identifier).type;
+				DataType type = gen->m_vars.at(identifier).types.type;
 
 				if (expr_type == EXPRTYPE::RVALUE)
 				{
@@ -232,6 +214,7 @@ private:
 		struct ExprVisitor 
 		{
 			Generator* gen;
+			DataType type;
 			EXPRTYPE expr_type;
 
 			void operator()(const NodeTerm* term) const {
@@ -243,11 +226,11 @@ private:
 			}
 
 			void operator()(const NodeUnExpr* un_expr) const {
-				gen->gen_un_expr(un_expr, expr_type);
+				gen->gen_un_expr(un_expr, expr_type, type);
 			}
 		};
 		
-		ExprVisitor visitor{.gen = this, .expr_type = expr->expr_type};
+		ExprVisitor visitor{.gen = this, .type = expr->type, .expr_type = expr->expr_type};
 		std::visit(visitor, expr->var);	
 	}
 
@@ -285,21 +268,21 @@ private:
 		std::visit(visitor, bin_expr->var);
 	}
 
-	inline void gen_un_expr(const NodeUnExpr* un_expr, const EXPRTYPE expr_type)
+	inline void gen_un_expr(const NodeUnExpr* un_expr, const EXPRTYPE expr_type, const DataType type)
 	{
 		struct un_visitor
 		{
 			Generator* gen;
+			DataType type;
 			EXPRTYPE expr_type;
 
 			void operator()(const NodeUnExprDref* dref) const {
-				DataType pointed_type = INT;//m_Table[dref->lvalue_expr->type].pointed_type.value();
 				
 				if (dref->rvalue_expr.has_value())
 				{
 					gen->gen_lhs_rhs(dref->rvalue_expr.value(), dref->lvalue_expr);
 
-					gen->m_output << "    mov rcx, "    << gen->m_Table[pointed_type].type_size << '\n'  
+					gen->m_output << "    mov rcx, "    << gen->m_Table[type].type_size << '\n'  
 						      << "    mul rcx"      << '\n'
 						      << "    add rbx, rax" << '\n'
 						      << "    mov rax, rbx" << '\n';
@@ -313,21 +296,27 @@ private:
 						break;
 					case EXPRTYPE::RVALUE:
 						gen->m_output << "    mov "
-						              << gen->m_Table[pointed_type].getReg('a')	
+						              << gen->m_Table[type].getReg('a')	
 							      << ", "
-							      << gen->m_Table[pointed_type].size_asm
+							      << gen->m_Table[type].size_asm
 							      << " [rax]"
 							      << '\n';
-					        gen->clear_reg("rax", pointed_type);
+					        gen->clear_reg("rax", type);
 						break;
 				}
 
 			}
 
 			void operator()(const NodeUnExprIncrement* increment) const {
-				DataType type = INT; //increment->lvalue_expr->type
-				gen->gen_expr(increment->lvalue_expr);
-				gen->m_output << "    mov rbx, rax" << '\n'; 
+				if (increment->rvalue_expr.has_value())
+				{
+					gen->gen_lhs_rhs(increment->rvalue_expr.value(),increment->lvalue_expr);
+					gen->m_output << "    mov rcx, rax" << '\n';
+				} else {
+					gen->gen_expr(increment->lvalue_expr);
+					gen->m_output << "    mov rbx, rax" << '\n'
+					       	      << "    mov rcx, 1"   << '\n';	
+				  }
 				
 				if(expr_type == EXPRTYPE::RVALUE)
 				{
@@ -342,7 +331,8 @@ private:
 				
 				gen->m_output << "    add "
 			 		      << gen->m_Table[type].size_asm
-					      << " [rbx], 1"
+					      << " [rbx], " 
+					      << gen->m_Table[type].getReg('c')
 					      << '\n';	
 			}
 
@@ -354,7 +344,7 @@ private:
 			}
 		};
 
-		un_visitor visitor{.gen = this, .expr_type = expr_type};
+		un_visitor visitor{.gen = this, .type = type, .expr_type = expr_type};
 		std::visit(visitor, un_expr->var);
 	}
 
@@ -374,32 +364,20 @@ private:
 			}
 
 			void operator()(const NodeStmtDeclare* declare) const {
-				std::string identifier = declare->ident.value.value();
-				if (gen->m_vars.contains(identifier))
-				{
-					std::cerr << "Cannot Re-Declare variable: '" << identifier << "'\n";
-					exit(EXIT_FAILURE);
-				}
+				std::string identifier = declare->ident.value.value();	
 
 				gen->m_output << "    sub rsp, " << gen->m_Table[declare->type].type_size * declare->count << '\n';
 				gen->m_stack_size += gen->m_Table[declare->type].type_size * declare->count;
 				
-				if (declare->count > 1)
-				{
-					gen->m_vars.insert(identifier, Var{.stack_loc = gen->m_stack_size, .type = PTR, .pointed_type = declare->type});
-				} else {
-					gen->m_vars.insert(identifier, Var{.stack_loc = gen->m_stack_size, .type = declare->type});
-				  }
-
-				if (declare->type == PTR)
-				{
-					gen->m_vars.at(identifier).pointed_type = declare->pointed_type.value();
-				}
+				Var tmp_var {.stack_loc = gen->m_stack_size,
+					     .types     = gen->m_sym_table.at(identifier)};
+				
+				gen->m_vars.insert(identifier, tmp_var);
 			}
 
 
 			void operator()(const NodeStmtAssign* assign) const {
-				DataType type = INT;  //assign->lvalue_expr->type;
+				DataType type = assign->lvalue_expr->type;
 				
 				if (assign->rvalue_expr.has_value())
 				{
@@ -414,7 +392,7 @@ private:
 				  }
 			}
 
-			void operator()(const NodeScope* scope) const{
+			void operator()(const NodeStmtScope* scope) const{
 				gen->begin_scope();
 
 				for (const NodeStmt* stmt : scope->stmts)
@@ -444,7 +422,7 @@ private:
 				gen->m_output << end_label << ":\n";
 			}
 
-			void operator()(const NodeLoop* loop) const {
+			void operator()(const NodeStmtLoop* loop) const {
 				std::string start_label = gen->create_label();
 				std::string end_label = gen->create_label();
 				

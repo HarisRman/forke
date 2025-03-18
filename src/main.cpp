@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "include/generator.hpp"
+#include "include/typecheck.hpp"
 
 int main(int argc, char** argv) {
 	
@@ -29,8 +30,11 @@ int main(int argc, char** argv) {
 		std::cerr << "Failed to parse\n";
 		exit(EXIT_FAILURE);
 	}
-	
-	Generator generator(std::move(prog.value()));
+		
+	TypeChecker checker;
+	checker.check(prog.value());	
+
+	Generator generator(std::move(prog.value()), checker.get_sym_table());
 
 	{
 		std::ofstream file ("bin/out.asm");
