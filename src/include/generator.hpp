@@ -259,6 +259,12 @@ private:
 				gen->m_output << "    div rbx" << '\n';
 			}
 
+			void operator()(const NodeBinExprMod* modulo) const {
+				gen->gen_lhs_rhs(modulo->lhs, modulo->rhs);
+				gen->m_output << "    div rbx"      << '\n'
+					      << "    mov rax, rdx" << '\n';
+			}
+
 			void operator()(const NodeBinExprCmp* cmp) const {
 				gen->gen_cmp_expr(cmp);
 			}

@@ -26,6 +26,7 @@ enum class TokenType
 	minus,
 	star,
 	fslash,
+	modulo,
 	g_than,
 	l_than,
 	eq_to,
@@ -55,7 +56,8 @@ std::optional<int> bin_op_prec(const Token& tok) {
 		case TokenType::minus:
 			return 1;
 		case TokenType::star :
-		case TokenType::fslash  :
+		case TokenType::fslash:
+		case TokenType::modulo:
 			return 2;
 		case TokenType::dref :
 			return 3;
@@ -302,6 +304,10 @@ public:
 						consume();
 						output.push_back({TokenType::fslash, m_line});
 						break;
+					case '%':
+						consume();
+						output.push_back({TokenType::modulo, m_line});
+					   	break;	
 					case '>':
 						consume();
 						output.push_back({TokenType::g_than, m_line});

@@ -59,6 +59,11 @@ struct NodeBinExprDiv {
 	NodeExpr* rhs;
 };
 
+struct NodeBinExprMod {
+	NodeExpr* lhs;
+	NodeExpr* rhs;
+};
+
 struct NodeBinExprCmp {
 	TokenType cmp_op;
 	NodeExpr* lhs;
@@ -66,7 +71,7 @@ struct NodeBinExprCmp {
 };
 
 struct NodeBinExpr {
-	std::variant<NodeBinExprAdd*, NodeBinExprSub*, NodeBinExprMulti*, NodeBinExprDiv*, NodeBinExprCmp*> var;	
+	std::variant<NodeBinExprAdd*, NodeBinExprSub*, NodeBinExprMulti*, NodeBinExprDiv*,NodeBinExprMod*, NodeBinExprCmp*> var;	
 };
 
 struct NodeUnExprDref {
@@ -318,6 +323,18 @@ private:
 			bin_expr->var = bin_expr_fslash;	
 			out->var = bin_expr;
 			
+			return out;
+		}
+
+		else if (op.type == TokenType::modulo)
+		{
+			auto bin_expr_mod = m_allocater.alloc<NodeBinExprMod>();
+			bin_expr_mod->lhs = lhs;
+			bin_expr_mod->rhs = rhs;
+
+			bin_expr->var = bin_expr_mod;
+			out->var = bin_expr;
+
 			return out;
 		}
 
