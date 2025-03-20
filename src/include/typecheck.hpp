@@ -163,16 +163,37 @@ private:
 		struct write_Visitor 
 		{
 			TypeChecker* tc;
+			std::optional<NodeExpr*> bytes;
 
 			void operator()(NodeExpr* const expr) const {
-				tc->check_expr(expr);
+				expr->type = tc->check_expr(expr);
+				
+				if (expr->type != CHAR)
+				{
+					if (tc->check_expr(expr, RET_PTED_TYPE) != CHAR)
+					{
+						std::cerr << "WRITE WRITES CHARACTER RETARD\n";
+						exit(EXIT_FAILURE);
+					}
+				}
+
+				if (bytes.has_value())
+				{
+					bytes.value()->type = tc->check_expr(bytes.value());
+					if (bytes.value()->type != INT)
+					{
+						std::cerr << "Give me the number of characters to print fuckface\n";
+						exit(EXIT_FAILURE);
+					}
+				}
 			}
+
 			void operator()(const std::string str) const {
-				;
+				return;
 			}
 		};
 
-		write_Visitor visitor{.tc = this};
+		write_Visitor visitor{.tc = this, .bytes = write->no_of_bytes};
 		std::visit(visitor, write->var);
 	}
 
@@ -228,7 +249,7 @@ private:
 						return tc->m_sym_table[ident].pointed_type.value();
 					else 
 					{
-						std::cerr << "Cannot dereference a non pointer jackass\n";
+						std::cerr << "Trying to access pointed type of a non pointer :(\n";
 						exit(EXIT_FAILURE);
 					} 
 				} else 

@@ -118,6 +118,7 @@ struct NodeStmtAssign {
 
 struct NodeStmtWrite {
 	std::variant<NodeExpr*, std::string> var;
+	std::optional<NodeExpr*> no_of_bytes;
 	bool nl;
 };
 
@@ -651,12 +652,22 @@ private:
 			{
 				write->var = str_lit.value().value.value();	
 			}
+
 			else if (try_consume(TokenType::v_bar))
 			{
-				if (auto expr = parse_expr())
+				if (auto expr = parse_expr(0, EXPRTYPE::LVALUE))
 					write->var = expr.value();
 				else EXIT_WARNING("Expression");
+
+				if (try_consume(TokenType::comma))
+				{
+					if (auto expr = parse_expr())
+						write->no_of_bytes = expr.value();
+					else EXIT_WARNING("Expression");
+				}
+
 				try_consume_exit(TokenType::v_bar);
+			
 			} else {
 				EXIT_WARNING("String literal or an Expression");
 			  }

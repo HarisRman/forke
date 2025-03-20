@@ -6,6 +6,7 @@ enum class TokenType
 	exit,
 	open_paren,
 	close_paren,
+	comma,
 	v_bar,
 	open_curly,
 	close_curly,
@@ -260,6 +261,10 @@ public:
 					case '|': 
 						consume();
 						output.push_back({TokenType::v_bar, m_line});
+						break;
+					case ',':
+						consume();
+						output.push_back({TokenType::comma, m_line});
 						break;
 					case '(':
 						consume();

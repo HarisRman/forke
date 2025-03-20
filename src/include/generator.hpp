@@ -452,7 +452,7 @@ private:
 		{
 			Generator* gen;
 			bool nl;
-			WriteVisitor(Generator* p_gen, bool p_nl) : gen(p_gen), nl(p_nl) {}
+			std::optional<NodeExpr*> bytes;
 
 			void operator()(const std::string& str) const {
 				std::string msg_label = gen->create_label();
@@ -462,46 +462,20 @@ private:
 					      << "    mov rdx, " << str.length() + (nl ? 1 : 0) << '\n';
 			}
 			void operator()(const NodeExpr* expr) const {
-				gen->m_byte_buffer = 5;
 				gen->gen_expr(expr);
-				
-				std::string l1    = gen->create_label();
-				std::string l2    = gen->create_label();
-				std::string endl2 = gen->create_label();
+				gen->m_output << "    mov rsi, rax" << '\n';
 
-				gen->m_output << "    mov rdi, 10"  << '\n'
-					      << "    mov rcx, 0"   << '\n'
-					      << "    mov rdx, 0"   << '\n'
-					      
-					      << l1 << ":\n"
-					      << "    cmp rax, 0"   << '\n'
-					      << "    jz " << l2 << '\n'
-					      << "    div rdi"	    << '\n'
-					      << "    add rdx, 0x30"<< '\n'
-					      << "    push rdx"     << '\n' 
-					      << "    mov rdx, 0"   << '\n'
-					      << "    add rcx, 1"   << '\n'
-					      << "    jmp " << l1   << '\n'
-
-					      << l2 << ":\n"
-					      << "    cmp rdx, rcx"           << '\n'
-					      << "    jz " << endl2 	      << '\n'
-					      << "    pop rax"                << '\n'
-					      << "    mov byte [buf+rdx], al" << '\n'
-					      << "    add rdx, 1"	      << '\n'
-					      << "    jmp " << l2             << '\n'
-					      << endl2 << ":\n"
-
-					      << "    mov rsi, buf"	      << '\n';
-				if (nl)
+				if (bytes.has_value())
 				{
-					gen->m_output << "    mov byte [buf+rdx], 0xA" << '\n'
-						      << "    add rdx, 1"	       << '\n';
-				}
+					gen->gen_expr(bytes.value());
+					gen->m_output << "    mov rdx, rax" << '\n';
+				} else {
+					gen->m_output << "    mov rdx, 1" << '\n';
+				  }
 			}
 		};
 
-		WriteVisitor visitor(this, write->nl);
+		WriteVisitor visitor{.gen = this, .nl = write->nl, .bytes = write->no_of_bytes};
 		std::visit(visitor, write->var);
 
 		m_output << "    mov rax, 1" << '\n'
