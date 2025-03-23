@@ -6,6 +6,12 @@
 #include "./typecheck.hpp"
 #include "./parser.hpp"
 
+#ifdef DEBUG
+const std::string DBG_out(const std::stringstream& out) {
+	return out.str();
+}
+#endif
+
 class Generator {
 public:
 	inline Generator(NodeProg* prog,  const std::unordered_map<std::string, TypeChecker::VarType>& p_table)
@@ -24,7 +30,7 @@ public:
 		m_output << "    mov rax, 60" << '\n';
 		m_output << "    mov rdi, 0"  << '\n';
 		m_output << "    syscall"     << '\n';
-
+		
 		//Gen Bss
 		m_output << "\n\nsection .bss\n";
 		if (m_byte_buffer)
@@ -49,6 +55,7 @@ public:
 
 		return m_output.str();
 	}
+
 private:
 
 	struct Var
@@ -108,6 +115,7 @@ private:
 		return m_stack_size - loc;
 	}
 
+
 	inline void gen_lhs_rhs(NodeExpr* lhs, NodeExpr* rhs) {
 		gen_expr(rhs);
 		m_output << "    push rax" << '\n';
@@ -120,7 +128,7 @@ private:
 	inline void clear_reg(const std::string reg, DataType type) {
 		if (m_Table[type].type_size >= 4)
 			return;
-		else m_output << "    and " << reg << ", 0x" << std::hex << BITMASK(m_Table[type].type_size) << '\n';
+		else m_output << "    and " << reg << ", 0x" << std::hex << BITMASK(m_Table[type].type_size) << std::dec << '\n';
 	}
 
 	//generating assembly for EXPRESSIONS	
@@ -256,12 +264,14 @@ private:
 
 			void operator()(const NodeBinExprDiv* fslash) const {
 				gen->gen_lhs_rhs(fslash->lhs, fslash->rhs);
-				gen->m_output << "    div rbx" << '\n';
+				gen->m_output << "    mov rdx, 0" << '\n'
+					      << "    div rbx"    << '\n';
 			}
 
 			void operator()(const NodeBinExprMod* modulo) const {
 				gen->gen_lhs_rhs(modulo->lhs, modulo->rhs);
-				gen->m_output << "    div rbx"      << '\n'
+				gen->m_output << "    mov rdx, 0"   << '\n'
+					      << "    div rbx"      << '\n'
 					      << "    mov rax, rdx" << '\n';
 			}
 

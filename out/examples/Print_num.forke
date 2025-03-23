@@ -1,0 +1,38 @@
+
+
+char~10~ array;
+int num;
+int i;
+
+num = 69428;
+i = 0;
+loop |num != 0|
+{
+	->array~i~ = (num % 10) + 48;
+
+	num = num / 10;
+	++i;
+}
+
+char~10~ arr2;
+int j;
+int lim;
+
+j = 0;
+i = i - 1;
+lim = 0 - 1;
+
+loop |i < lim|
+{
+	->arr2~j~ = ->array~i~;
+
+	i = i - 1;
+	
+	++j;	
+}
+
+
+write |arr2, j|;
+write ""<>;
+
+exit(69);

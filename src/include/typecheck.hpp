@@ -33,24 +33,37 @@ private:
 		RET_PTED_TYPE
 	}; //STUPID workaround bit sleepy rn
 	
-	#define NO_OF_INCOMPATIBLE_TYPES 1
-	
 	std::unordered_map<std::string, VarType> m_sym_table;
 	
-	const std::pair<DataType,DataType> m_incompatible_types[NO_OF_INCOMPATIBLE_TYPES] = { {PTR, CHAR} };
-
-	inline DataType compatible_type(const std::pair<DataType,DataType>& types) {
-		for (int i = 0; i < NO_OF_INCOMPATIBLE_TYPES; i++)
+	#define NO_INCOMP_OP_TYPES   2
+	#define NO_INCOMP_CNV_TYPES  4
+	const std::pair<DataType,DataType> m_incomp_op_types[NO_INCOMP_OP_TYPES] = {   {PTR, CHAR}, {CHAR, PTR} };
+	const std::pair<DataType,DataType> m_incomp_cnv_types[NO_INCOMP_CNV_TYPES] = { {PTR, CHAR}, {CHAR, PTR} ,
+										      {PTR, INT} , {INT, PTR} };
+	template <bool op_array, int size>
+	inline void check_incompatible(const std::pair<DataType,DataType>& types) {
+		
+		const std::pair<DataType,DataType>* array = op_array ? m_incomp_op_types : m_incomp_cnv_types; 
+		for (int i = 0; i < size; i++)
 		{
-			if (m_incompatible_types[i] == types)
+			if (array[i] == types)
 			{
 				std::cerr << "Incompatible types jackass\n";
 				exit(EXIT_FAILURE);
 			}
 		}
+	}
 
-		DataType res = types.first;
-		return res > types.second ? res : types.second;
+	inline DataType compatible_type(DataType t1, DataType t2) {
+		check_incompatible<true, NO_INCOMP_OP_TYPES>( {t1,t2} );
+
+		return t1 > t2 ? t1 : t2;
+	}
+
+	inline DataType implicit_convert(DataType t1, DataType t2) {
+		check_incompatible<false, NO_INCOMP_CNV_TYPES>( {t1,t2} );
+
+		return t1;
 	}
 
 
@@ -90,15 +103,17 @@ private:
 			void operator()(const NodeStmtAssign* assign) const {
 				//Implement Rvalue vs Lvalue check
 				
-				assign->lvalue_expr->type = tc->check_expr(assign->lvalue_expr);
-				
+				DataType t1 = tc->check_expr(assign->lvalue_expr);
+				assign->lvalue_expr->type = t1;
+
 				if (assign->rvalue_expr.has_value())
 				{
-					assign->rvalue_expr.value()->type = tc->check_expr(assign->rvalue_expr.value());
-					if (assign->lvalue_expr->type != assign->rvalue_expr.value()->type)
+					DataType t2 = tc->check_expr(assign->rvalue_expr.value());
+					assign->rvalue_expr.value()->type = t2;
+
+					if (t1 != t2)
 					{
-						std::cerr << "Assignment types not matching lil bro\n";
-						exit(EXIT_FAILURE);
+						assign->rvalue_expr.value()->type = tc->implicit_convert(t1, t2);
 					}
 				}
 			}
@@ -272,7 +287,7 @@ private:
 				obj->lhs->type = check_expr(obj->lhs);
 				obj->rhs->type = check_expr(obj->rhs);
 
-				return compatible_type( {obj->lhs->type, obj->rhs->type} );
+				return compatible_type( obj->lhs->type, obj->rhs->type );
 			},bin_expr->var);
 	}
 

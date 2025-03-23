@@ -1,9 +1,9 @@
 all:
 	g++ -std=c++20 ../src/main.cpp -o bin/forke
 
-run-debug: 
-	g++ -std=c++20 ../src/main.cpp -o bin/forke -g
-debug:
+debug: 
+	g++ -std=c++20 -DDEBUG ../src/main.cpp -o bin/forke -g
+run-debug:
 	gdb --args bin/forke ./examples/test.forke
 exe:
 	bin/forke ./examples/test.forke

@@ -1,9 +1,10 @@
-out/bin
+out/bin/out
+out/bin/forke
 out/out.asm
 out/examples/test.forke
 
 *.swp
-
+*.swo
 
 
 
