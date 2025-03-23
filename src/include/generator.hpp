@@ -31,11 +31,6 @@ public:
 		m_output << "    mov rdi, 0"  << '\n';
 		m_output << "    syscall"     << '\n';
 		
-		//Gen Bss
-		m_output << "\n\nsection .bss\n";
-		if (m_byte_buffer)
-			m_output << "    buf resb " << m_byte_buffer << '\n';
-
 		//Gen Data
 		m_output << "\n\nsection .data\n";
 		for (const MsgData& data : m_Messages)
@@ -85,8 +80,6 @@ private:
 
 	Modded_map<Var> m_vars;
 	TypeTable m_Table;
-
-	int m_byte_buffer = 0;
 
 	inline void begin_scope() {	
 		m_scopes.push_back(m_stack_size);

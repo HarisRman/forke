@@ -1,0 +1,52 @@
+//Calculating Factorial
+int factorial;
+factorial = 1;
+
+{
+	int num;
+	num = 10;
+
+	loop |num > 0| {
+		factorial = num * factorial;
+
+		num = num - 1;
+	}
+}
+
+//PRINTING FACTORIAL
+char~10~ array;
+int i;
+int print;
+
+print = factorial;
+i = 0;
+loop |print != 0|
+{
+	->array~i~ = (print % 10) + 48;
+
+	print = print / 10;
+	++i;
+}
+
+char~10~ arr2;
+int j;
+int lim;
+
+j = 0;
+i = i - 1;
+lim = 0 - 1;
+
+loop |i < lim|
+{
+	->arr2~j~ = ->array~i~;
+
+	i = i - 1;
+	
+	++j;	
+}
+
+
+write |arr2, j|;
+write ""<>;
+
+exit(69);

@@ -1,6 +1,4 @@
-out/bin/out
-out/bin/forke
-out/out.asm
+out/bin
 out/examples/test.forke
 
 *.swp
